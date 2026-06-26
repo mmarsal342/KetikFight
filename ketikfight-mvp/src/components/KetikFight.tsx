@@ -1,20 +1,21 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { GamePhase, Projectile } from "../types";
+import { LOMPAT_COOLDOWN, MAX_HP, TRAVEL_MS } from "../types";
 import {
-  LOMPAT_COOLDOWN,
-  MAX_HP,
-  TRAVEL_MS,
-} from "../types";
-import {
-  ATTACKS,
-  DEFENSES,
   DIFFICULTIES,
   MAX_PERISAI_CHARGES,
   getRandomAttack,
 } from "../gameData";
 import type { Difficulty } from "../gameData";
-
+import {
+  CHARACTERS,
+  ULT_THRESHOLD,
+  createDeckManager,
+  getRefillDelay,
+} from "../characters";
+import type { Character, Jurus, SlotState } from "../characters";
 import { sfx, setSoundEnabled, initAudio } from "../sound";
+
 import HPBar from "./HPBar";
 import Stickman from "./Stickman";
 import ProjectileEl from "./Projectile";
@@ -23,11 +24,12 @@ import ArenaBackground from "./ArenaBackground";
 import ShieldIndicator from "./ShieldIndicator";
 import LompattCdIndicator from "./LompattCdIndicator";
 import InputField from "./InputField";
-import WordCheatsheet from "./WordCheatsheet";
 import HUDBar from "./HUDBar";
+import JurusSlots from "./JurusSlots";
+import CharacterSelect from "./CharacterSelect";
 
 export default function KetikFight() {
-  // Refs — source of truth for game logic
+  // Refs — game logic source of truth
   const pHPRef = useRef<number>(MAX_HP);
   const cHPRef = useRef<number>(MAX_HP);
   const projsRef = useRef<Projectile[]>([]);
@@ -38,8 +40,17 @@ export default function KetikFight() {
   const rafRef = useRef<number>(0);
   const cpuTimerRef = useRef<number>(0);
   const msgTimerRef = useRef<number>(0);
+  const countdownTimerRef = useRef<number>(0);
   const totalCharsRef = useRef<number>(0);
   const startTimeRef = useRef<number>(0);
+  const diffRef = useRef<Difficulty>("normal");
+
+  // Character / slot refs
+  const charRef = useRef<Character>(CHARACTERS[0]);
+  const deckMgrRef = useRef<{ draw: () => Jurus; reset: () => void } | null>(null);
+  const slotsRef = useRef<SlotState[]>([]);
+  const ultChargeRef = useRef<number>(0);
+  const ultReadyRef = useRef<boolean>(false);
 
   // State — render triggers
   const [playerHP, setPlayerHP] = useState(MAX_HP);
@@ -57,8 +68,12 @@ export default function KetikFight() {
   const [soundOn, setSoundOn] = useState(true);
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
   const [countdown, setCountdown] = useState<number | null>(null);
-  const diffRef = useRef<Difficulty>("normal");
-  const countdownTimerRef = useRef<number>(0);
+  const [selectedChar, setSelectedChar] = useState<string>("pendekar");
+  const [slots, setSlots] = useState<SlotState[]>([]);
+  const [ultCharge, setUltCharge] = useState(0);
+  const [ultReady, setUltReady] = useState(false);
+
+  const character = charRef.current;
 
   const stopAll = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -84,8 +99,7 @@ export default function KetikFight() {
     if (elapsedSec < 5) return;
     totalCharsRef.current += charsTyped;
     const elapsedMin = elapsedSec / 60;
-    const calculated = Math.round(totalCharsRef.current / 5 / elapsedMin);
-    setWpm(calculated);
+    setWpm(Math.round(totalCharsRef.current / 5 / elapsedMin));
   }, []);
 
   const checkWinLose = useCallback(() => {
@@ -101,6 +115,21 @@ export default function KetikFight() {
       sfx.lose();
     }
   }, [stopAll]);
+
+  const syncSlots = useCallback(() => {
+    setSlots(slotsRef.current.map((s) => ({ ...s })));
+  }, []);
+
+  const addUltCharge = useCallback(() => {
+    if (ultReadyRef.current) return;
+    ultChargeRef.current++;
+    setUltCharge(ultChargeRef.current);
+    if (ultChargeRef.current >= ULT_THRESHOLD) {
+      ultReadyRef.current = true;
+      setUltReady(true);
+      sfx.ultReady();
+    }
+  }, []);
 
   // CPU attack scheduler
   const scheduleCpuAttack = useCallback(() => {
@@ -132,7 +161,7 @@ export default function KetikFight() {
     return () => cancelAnimationFrame(rafRef.current);
   }, [phase]);
 
-  // Hit detection — runs on every frame
+  // Hit detection + slot refill check
   useEffect(() => {
     if (phase !== "playing") return;
     const now = Date.now();
@@ -144,7 +173,6 @@ export default function KetikFight() {
       done.add(p.id);
 
       if (p.fromPlayer) {
-        // CPU passive defense
         const blockChance = getCpuBlockChance(cHPRef.current);
         if (Math.random() < blockChance) {
           setCpuGuarding(true);
@@ -174,7 +202,18 @@ export default function KetikFight() {
       setProjs([...projsRef.current]);
       checkWinLose();
     }
-  }, [frame, phase, checkWinLose, showToast]);
+
+    // Slot refill check
+    let slotsChanged = false;
+    for (const slot of slotsRef.current) {
+      if (!slot.jurus && now >= slot.refillAt && deckMgrRef.current) {
+        slot.jurus = deckMgrRef.current.draw();
+        slotsChanged = true;
+        sfx.slotRefill();
+      }
+    }
+    if (slotsChanged) syncSlots();
+  }, [frame, phase, checkWinLose, showToast, syncSlots]);
 
   const firePlayerAttack = useCallback(
     (word: string, dmg: number) => {
@@ -195,21 +234,11 @@ export default function KetikFight() {
   );
 
   const executeDefense = useCallback(
-    (word: string) => {
-      const defense = DEFENSES[word];
-      if (!defense) return;
-
-      if (defense.type === "dodge_counter") {
-        if (Date.now() < lompattCdRef.current) {
-          showToast("LOMPAT cooldown!", "error");
-          return;
-        }
-      }
-
+    (jurus: Jurus) => {
       setPlayerGuarding(true);
       setTimeout(() => setPlayerGuarding(false), 200);
 
-      if (defense.type === "block") {
+      if (jurus.defenseType === "block") {
         const cpuProjs = projsRef.current.filter((p) => !p.fromPlayer);
         const removed = cpuProjs.slice(0, 2);
         const removedIds = new Set(removed.map((p) => p.id));
@@ -217,35 +246,80 @@ export default function KetikFight() {
         setProjs([...projsRef.current]);
         showToast(removed.length > 1 ? "TANGKIS x2!" : "TANGKIS!", "info");
         sfx.clang();
-      } else if (defense.type === "shield") {
+      } else if (jurus.defenseType === "shield") {
         if (shieldRef.current >= MAX_PERISAI_CHARGES) {
           showToast("SHIELD MAX!", "error");
-          return;
+          return false;
         }
-        const newCharges = Math.min(shieldRef.current + 2, MAX_PERISAI_CHARGES);
+        const newCharges = Math.min(shieldRef.current + (jurus.shieldCharges ?? 2), MAX_PERISAI_CHARGES);
         shieldRef.current = newCharges;
         setShield(newCharges);
-        showToast(`SHIELD +2 (${newCharges})`, "info");
+        showToast(`SHIELD +${jurus.shieldCharges ?? 2} (${newCharges})`, "info");
         sfx.shield();
-      } else if (defense.type === "dodge_counter") {
+      } else if (jurus.defenseType === "dodge_counter") {
+        if (Date.now() < lompattCdRef.current) {
+          showToast("LOMPAT cooldown!", "error");
+          return false;
+        }
         const cpuProjs = projsRef.current.filter((p) => !p.fromPlayer);
         if (cpuProjs.length > 0) {
           projsRef.current = projsRef.current.filter((p) => p.id !== cpuProjs[0].id);
           setProjs([...projsRef.current]);
         }
-        if (defense.counter) {
-          cHPRef.current = Math.max(0, cHPRef.current - defense.counter);
+        if (jurus.counter) {
+          const dmg = Math.round(jurus.counter * charRef.current.damageMod);
+          cHPRef.current = Math.max(0, cHPRef.current - dmg);
           setCpuHP(cHPRef.current);
-          showToast(`LOMPAT! -${defense.counter}`, "success");
+          showToast(`LOMPAT! -${dmg}`, "success");
         }
         lompattCdRef.current = Date.now() + LOMPAT_COOLDOWN;
         setLompattCdEnd(lompattCdRef.current);
         sfx.lompat();
         checkWinLose();
       }
+      return true;
     },
     [showToast, checkWinLose],
   );
+
+  const useSlot = useCallback(
+    (slotIdx: number) => {
+      const slot = slotsRef.current[slotIdx];
+      if (!slot.jurus) return;
+      const jurus = slot.jurus;
+
+      if (jurus.type === "defense") {
+        const success = executeDefense(jurus);
+        if (success === false) return;
+      } else {
+        const dmg = Math.round(jurus.dmg * charRef.current.damageMod);
+        firePlayerAttack(jurus.word, dmg);
+      }
+
+      // Trigger refill
+      const delay = getRefillDelay(jurus, charRef.current.refillMod);
+      slot.jurus = null;
+      slot.refillAt = Date.now() + delay;
+      slot.refillDuration = delay;
+      syncSlots();
+      addUltCharge();
+    },
+    [firePlayerAttack, executeDefense, syncSlots, addUltCharge],
+  );
+
+  const useUltimate = useCallback(() => {
+    if (!ultReadyRef.current) return;
+    const ult = charRef.current.ultimate;
+    const dmg = Math.round(ult.dmg * charRef.current.damageMod);
+    firePlayerAttack(ult.word, dmg);
+    showToast(`${ult.word}!`, "success");
+    sfx.ultFire();
+
+    ultChargeRef.current = 0;
+    ultReadyRef.current = false;
+    setUltCharge(0);
+    setUltReady(false);
+  }, [firePlayerAttack, showToast]);
 
   const handleInput = useCallback(
     (v: string) => {
@@ -253,21 +327,23 @@ export default function KetikFight() {
       if (phaseRef.current !== "playing") return;
       if (v.length > input.length) sfx.type();
 
-      const attack = ATTACKS.find((a) => a.word === v);
-      if (attack) {
-        firePlayerAttack(attack.word, attack.dmg);
+      // Check regular slots
+      const slotIdx = slotsRef.current.findIndex((s) => s.jurus && s.jurus.word === v);
+      if (slotIdx >= 0) {
+        useSlot(slotIdx);
         setInput("");
-        updateWPM(attack.word.length);
+        updateWPM(v.length);
         return;
       }
 
-      if (DEFENSES[v]) {
-        executeDefense(v);
+      // Check ultimate
+      if (ultReadyRef.current && charRef.current.ultimate.word === v) {
+        useUltimate();
         setInput("");
         updateWPM(v.length);
       }
     },
-    [firePlayerAttack, executeDefense, updateWPM],
+    [input.length, useSlot, useUltimate, updateWPM],
   );
 
   const beginPlay = useCallback(() => {
@@ -280,6 +356,16 @@ export default function KetikFight() {
     totalCharsRef.current = 0;
     startTimeRef.current = 0;
     pidRef.current = 0;
+    ultChargeRef.current = 0;
+    ultReadyRef.current = false;
+
+    // Init deck & slots
+    deckMgrRef.current = createDeckManager(charRef.current);
+    slotsRef.current = [
+      { jurus: deckMgrRef.current.draw(), refillAt: 0, refillDuration: 0 },
+      { jurus: deckMgrRef.current.draw(), refillAt: 0, refillDuration: 0 },
+      { jurus: deckMgrRef.current.draw(), refillAt: 0, refillDuration: 0 },
+    ];
 
     setPlayerHP(MAX_HP);
     setCpuHP(MAX_HP);
@@ -289,13 +375,16 @@ export default function KetikFight() {
     setInput("");
     setFrame(0);
     setLompattCdEnd(0);
+    setUltCharge(0);
+    setUltReady(false);
+    syncSlots();
     setPhase("playing");
 
     cpuTimerRef.current = window.setTimeout(scheduleCpuAttack, 2000);
     sfx.start();
-  }, [scheduleCpuAttack]);
+  }, [scheduleCpuAttack, syncSlots]);
 
-  const startGame = useCallback(() => {
+  const startCountdown = useCallback(() => {
     initAudio();
     stopAll();
 
@@ -323,30 +412,36 @@ export default function KetikFight() {
     countdownTimerRef.current = window.setTimeout(tick, 700);
   }, [stopAll, beginPlay]);
 
+  const goToSelect = useCallback(() => {
+    stopAll();
+    phaseRef.current = "select";
+    setPhase("select");
+    setCountdown(null);
+  }, [stopAll]);
+
   const toggleSound = useCallback(() => {
     const next = !soundOn;
     setSoundOn(next);
     setSoundEnabled(next);
     if (next) {
       initAudio();
-      sfx.start();
+      sfx.select();
     }
   }, [soundOn]);
 
-  // Partial match finder
+  // Partial match — check active slots + ult
   const partialMatch = (() => {
     if (!input || input.length < 1) return null;
-    const attackMatch = ATTACKS.find((a) => a.word.startsWith(input) && a.word !== input);
-    if (attackMatch) return attackMatch.word;
-    const defenseMatch = Object.keys(DEFENSES).find((w) => w.startsWith(input) && w !== input);
-    if (defenseMatch) return defenseMatch;
+    for (const slot of slotsRef.current) {
+      if (slot.jurus && slot.jurus.word.startsWith(input) && slot.jurus.word !== input) {
+        return slot.jurus.word;
+      }
+    }
+    if (ultReadyRef.current && charRef.current.ultimate.word.startsWith(input) && charRef.current.ultimate.word !== input) {
+      return charRef.current.ultimate.word;
+    }
     return null;
   })();
-
-  const defenseList = Object.keys(DEFENSES).map((w) => ({
-    word: w,
-    type: DEFENSES[w].type,
-  }));
 
   return (
     <div className="relative w-full h-screen bg-gray-950 overflow-hidden font-mono select-none">
@@ -361,21 +456,19 @@ export default function KetikFight() {
         {soundOn ? "🔊 ON" : "🔇 OFF"}
       </button>
 
+      {/* Character indicator during play */}
+      {phase === "playing" && (
+        <div className="absolute top-4 left-4 z-20">
+          <span className="font-mono text-sm" style={{ color: character.color }}>
+            {character.emoji} {character.name}
+          </span>
+        </div>
+      )}
+
       {/* Arena */}
       <div className="absolute inset-0">
-        <Stickman
-          hp={playerHP}
-          maxHp={MAX_HP}
-          isPlayer={true}
-          isGuarding={playerGuarding}
-        />
-        <Stickman
-          hp={cpuHP}
-          maxHp={MAX_HP}
-          isPlayer={false}
-          isGuarding={cpuGuarding}
-        />
-
+        <Stickman hp={playerHP} maxHp={MAX_HP} isPlayer={true} isGuarding={playerGuarding} />
+        <Stickman hp={cpuHP} maxHp={MAX_HP} isPlayer={false} isGuarding={cpuGuarding} />
         {projs.map((p) => (
           <ProjectileEl key={p.id} p={p} />
         ))}
@@ -406,10 +499,16 @@ export default function KetikFight() {
         </div>
       )}
 
-      {/* Bottom UI */}
+      {/* Bottom UI — Slots + Input */}
       {phase === "playing" && (
         <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
-          <WordCheatsheet attacks={ATTACKS} defenses={defenseList} />
+          <JurusSlots
+            slots={slots}
+            character={character}
+            ultCharge={ultCharge}
+            ultReady={ultReady}
+            typedInput={input}
+          />
           <InputField
             value={input}
             onChange={handleInput}
@@ -432,18 +531,35 @@ export default function KetikFight() {
         </div>
       )}
 
-      {/* Overlay */}
-      <OverlayPanel
-        phase={phase}
-        wpm={wpm}
-        difficulty={difficulty}
-        onStart={startGame}
-        onRestart={startGame}
-        onSelectDifficulty={(d) => {
-          setDifficulty(d);
-          diffRef.current = d;
-        }}
-      />
+      {/* Character Select */}
+      {phase === "select" && (
+        <CharacterSelect
+          selectedChar={selectedChar}
+          difficulty={difficulty}
+          onSelectChar={(id) => {
+            setSelectedChar(id);
+            charRef.current = CHARACTERS.find((c) => c.id === id) ?? CHARACTERS[0];
+            sfx.select();
+          }}
+          onSelectDifficulty={(d) => {
+            setDifficulty(d);
+            diffRef.current = d;
+            sfx.select();
+          }}
+          onFight={startCountdown}
+        />
+      )}
+
+      {/* Overlay — idle / win / lose */}
+      {phase !== "select" && phase !== "playing" && countdown === null && (
+        <OverlayPanel
+          phase={phase}
+          wpm={wpm}
+          difficulty={difficulty}
+          onStart={goToSelect}
+          onRestart={goToSelect}
+        />
+      )}
     </div>
   );
 }

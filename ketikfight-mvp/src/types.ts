@@ -1,4 +1,4 @@
-export type GamePhase = "idle" | "playing" | "win" | "lose";
+export type GamePhase = "idle" | "select" | "playing" | "win" | "lose";
 
 export interface Projectile {
   id: number;

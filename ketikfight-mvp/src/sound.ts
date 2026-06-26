@@ -150,4 +150,27 @@ export const sfx = {
     tone(440, 0.1, "triangle", 0.2);
     setTimeout(() => tone(659, 0.15, "triangle", 0.25), 100);
   },
+
+  slotRefill() {
+    tone(500 + Math.random() * 300, 0.04, "sine", 0.06);
+  },
+
+  ultReady() {
+    tone(200, 0.1, "sawtooth", 0.15);
+    setTimeout(() => tone(400, 0.1, "sawtooth", 0.15), 80);
+    setTimeout(() => tone(600, 0.1, "sawtooth", 0.15), 160);
+    setTimeout(() => tone(800, 0.3, "triangle", 0.25), 240);
+    setTimeout(() => noiseBurst(0.3, 200, 0.1, 2000), 240);
+  },
+
+  ultFire() {
+    noiseBurst(0.5, 100, 0.3, 3000);
+    tone(150, 0.4, "sawtooth", 0.4, 50);
+    setTimeout(() => tone(80, 0.3, "square", 0.3, 40), 100);
+    setTimeout(() => noiseBurst(0.2, 500, 0.15), 200);
+  },
+
+  select() {
+    tone(800, 0.05, "sine", 0.1);
+  },
 };
