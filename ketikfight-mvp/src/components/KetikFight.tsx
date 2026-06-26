@@ -31,6 +31,8 @@ import ComboDisplay from "./ComboDisplay";
 import ParryIndicator from "./ParryIndicator";
 import JurusSlots from "./JurusSlots";
 import CharacterSelect from "./CharacterSelect";
+import TutorialOverlay from "./TutorialOverlay";
+import Footer from "./Footer";
 
 const PARRY_WINDOW = 0.65;
 const PARRY_COOLDOWN = 1000;
@@ -91,6 +93,9 @@ export default function KetikFight() {
   const [parryFlash, setParryFlash] = useState<"success" | "miss" | null>(null);
   const [parryCdEnd, setParryCdEnd] = useState(0);
   const [invulnEnd, setInvulnEnd] = useState(0);
+  const [showTutorial, setShowTutorial] = useState(() => {
+    return typeof localStorage !== "undefined" && !localStorage.getItem("ketikfight_tutorial_done");
+  });
 
   const character = charRef.current;
 
@@ -599,6 +604,11 @@ export default function KetikFight() {
     return () => window.removeEventListener("keydown", onKey);
   }, [phase, tryParry]);
 
+  const closeTutorial = useCallback(() => {
+    setShowTutorial(false);
+    localStorage.setItem("ketikfight_tutorial_done", "1");
+  }, []);
+
   const partialMatch = (() => {
     if (!input || input.length < 1) return null;
     for (const slot of slotsRef.current) {
@@ -617,13 +627,21 @@ export default function KetikFight() {
       <ArenaBackground />
       <HUDBar wpm={wpm} phase={phase} />
 
-      {/* Sound Toggle */}
-      <button
-        onClick={toggleSound}
-        className="absolute top-4 right-4 z-30 px-3 py-1.5 bg-black/50 rounded-lg font-mono text-sm hover:bg-black/70 transition-colors"
-      >
-        {soundOn ? "🔊 ON" : "🔇 OFF"}
-      </button>
+      {/* Sound Toggle + Help */}
+      <div className="absolute top-4 right-4 z-30 flex gap-2">
+        <button
+          onClick={() => setShowTutorial(true)}
+          className="px-3 py-1.5 bg-black/50 rounded-lg font-mono text-sm hover:bg-black/70 transition-colors"
+        >
+          ?
+        </button>
+        <button
+          onClick={toggleSound}
+          className="px-3 py-1.5 bg-black/50 rounded-lg font-mono text-sm hover:bg-black/70 transition-colors"
+        >
+          {soundOn ? "🔊 ON" : "🔇 OFF"}
+        </button>
+      </div>
 
       {/* Character indicator during play */}
       {phase === "playing" && (
@@ -751,6 +769,12 @@ export default function KetikFight() {
           onRestart={goToSelect}
         />
       )}
+
+      {/* Footer */}
+      <Footer />
+
+      {/* Tutorial */}
+      {showTutorial && <TutorialOverlay onClose={closeTutorial} />}
     </div>
   );
 }
