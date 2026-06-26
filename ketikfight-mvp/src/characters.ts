@@ -40,6 +40,44 @@ export const REFILL_DELAYS: Record<number, number> = {
   3: 1500,
 };
 
+export type ResonanceLevel = 0 | 1 | 2 | 3;
+
+export function detectResonance(slots: SlotState[], usedIdx: number): ResonanceLevel {
+  const slot = slots[usedIdx];
+  if (!slot.jurus) return 0;
+  const word = slot.jurus.word;
+  let count = 0;
+  for (const s of slots) {
+    if (s.jurus && s.jurus.word === word) count++;
+  }
+  if (count >= 3) return 3;
+  if (count === 2) return 2;
+  return 0;
+}
+
+export const RESONANCE_CONFIG = {
+  attack: {
+    1: { dmgMult: 1, label: "" },
+    2: { dmgMult: 2, label: "GEBYAR x2" },
+    3: { dmgMult: 4, label: "GEBYAR x4!" },
+  },
+  block: {
+    1: { removeCount: 2, counter: 0, label: "" },
+    2: { removeCount: 3, counter: 10, label: "GEBYAR x2" },
+    3: { removeCount: 999, counter: 30, label: "GEBYAR x3!" },
+  },
+  shield: {
+    1: { charges: 2, invulnMs: 0, label: "" },
+    2: { charges: 3, invulnMs: 3000, label: "GEBYAR x2" },
+    3: { charges: 5, invulnMs: 5000, label: "GEBYAR x3!" },
+  },
+  dodge_counter: {
+    1: { dodgeCount: 1, counter: 5, resetCd: false, label: "" },
+    2: { dodgeCount: 1, counter: 10, resetCd: true, label: "GEBYAR x2" },
+    3: { dodgeCount: 2, counter: 30, resetCd: true, label: "GEBYAR x3!" },
+  },
+};
+
 export interface ComboTier {
   threshold: number;
   label: string;

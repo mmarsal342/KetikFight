@@ -184,4 +184,13 @@ export const sfx = {
     tone(200, 0.1, "sawtooth", 0.15, 80);
     noiseBurst(0.06, 300, 0.06);
   },
+
+  resonance() {
+    tone(300, 0.1, "triangle", 0.15);
+    setTimeout(() => tone(600, 0.1, "triangle", 0.15), 60);
+    setTimeout(() => {
+      tone(1200, 0.2, "triangle", 0.25);
+      noiseBurst(0.2, 1000, 0.15, 3000);
+    }, 120);
+  },
 };

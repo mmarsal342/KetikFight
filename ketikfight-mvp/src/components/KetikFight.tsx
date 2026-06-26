@@ -3,7 +3,6 @@ import type { GamePhase, Projectile } from "../types";
 import { LOMPAT_COOLDOWN, MAX_HP, TRAVEL_MS } from "../types";
 import {
   DIFFICULTIES,
-  MAX_PERISAI_CHARGES,
   getRandomAttack,
 } from "../gameData";
 import type { Difficulty } from "../gameData";
@@ -13,8 +12,10 @@ import {
   getComboMultiplier,
   createDeckManager,
   getRefillDelay,
+  detectResonance,
+  RESONANCE_CONFIG,
 } from "../characters";
-import type { Character, Jurus, SlotState } from "../characters";
+import type { Character, Jurus, SlotState, ResonanceLevel } from "../characters";
 import { sfx, setSoundEnabled, initAudio } from "../sound";
 
 import HPBar from "./HPBar";
@@ -47,6 +48,8 @@ export default function KetikFight() {
   const phaseRef = useRef<GamePhase>("idle");
   const lompattCdRef = useRef<number>(0);
   const parryCdRef = useRef<number>(0);
+  const invulnRef = useRef<number>(0);
+  const maxShieldRef = useRef<number>(3);
   const pidRef = useRef<number>(0);
   const rafRef = useRef<number>(0);
   const cpuTimerRef = useRef<number>(0);
@@ -87,6 +90,7 @@ export default function KetikFight() {
   const [combo, setCombo] = useState(0);
   const [parryFlash, setParryFlash] = useState<"success" | "miss" | null>(null);
   const [parryCdEnd, setParryCdEnd] = useState(0);
+  const [invulnEnd, setInvulnEnd] = useState(0);
 
   const character = charRef.current;
 
@@ -231,6 +235,14 @@ export default function KetikFight() {
             addCombo();
           }
         }
+      } else if (now < invulnRef.current) {
+        // Invulnerable from PERISAI resonance — shield halves instead of 1
+        if (shieldRef.current > 0) {
+          shieldRef.current = Math.floor(shieldRef.current / 2);
+          setShield(shieldRef.current);
+          showToast("INVULN! Shield halved", "info");
+          sfx.shield();
+        }
       } else if (shieldRef.current > 0) {
         shieldRef.current--;
         setShield(shieldRef.current);
@@ -289,47 +301,75 @@ export default function KetikFight() {
   );
 
   const executeDefense = useCallback(
-    (jurus: Jurus) => {
+    (jurus: Jurus, resonance: ResonanceLevel) => {
       setPlayerGuarding(true);
       setTimeout(() => setPlayerGuarding(false), 200);
+      const lvl = (resonance || 1) as 1 | 2 | 3;
 
       if (jurus.defenseType === "block") {
+        const cfg = RESONANCE_CONFIG.block[lvl];
         const cpuProjs = projsRef.current.filter((p) => !p.fromPlayer);
-        const removed = cpuProjs.slice(0, 2);
+        const removeCount = Math.min(cfg.removeCount, cpuProjs.length);
+        const removed = cpuProjs.slice(0, removeCount);
         const removedIds = new Set(removed.map((p) => p.id));
         projsRef.current = projsRef.current.filter((p) => !removedIds.has(p.id));
         setProjs([...projsRef.current]);
-        showToast(removed.length > 1 ? "TANGKIS x2!" : "TANGKIS!", "info");
+        let label = removed.length > 1 ? `TANGKIS x${removed.length}!` : "TANGKIS!";
+        if (cfg.counter > 0) {
+          const counterDmg = Math.round(cfg.counter * charRef.current.damageMod);
+          cHPRef.current = Math.max(0, cHPRef.current - counterDmg);
+          setCpuHP(cHPRef.current);
+          label += ` Counter -${counterDmg}!`;
+        }
+        showToast(cfg.label || label, cfg.counter > 0 ? "success" : "info");
         sfx.clang();
+        if (resonance >= 2) sfx.resonance();
+        checkWinLose();
       } else if (jurus.defenseType === "shield") {
-        if (shieldRef.current >= MAX_PERISAI_CHARGES) {
+        const cfg = RESONANCE_CONFIG.shield[lvl];
+        maxShieldRef.current = Math.max(maxShieldRef.current, cfg.charges);
+        if (shieldRef.current >= maxShieldRef.current && cfg.invulnMs === 0) {
           showToast("SHIELD MAX!", "error");
           return false;
         }
-        const newCharges = Math.min(shieldRef.current + (jurus.shieldCharges ?? 2), MAX_PERISAI_CHARGES);
+        const newCharges = Math.min(shieldRef.current + cfg.charges, maxShieldRef.current);
         shieldRef.current = newCharges;
         setShield(newCharges);
-        showToast(`SHIELD +${jurus.shieldCharges ?? 2} (${newCharges})`, "info");
+        if (cfg.invulnMs > 0) {
+          invulnRef.current = Date.now() + cfg.invulnMs;
+          setInvulnEnd(invulnRef.current);
+          showToast(`SHIELD ${newCharges} + INVULN ${(cfg.invulnMs / 1000).toFixed(0)}s`, "info");
+        } else {
+          showToast(`SHIELD +${cfg.charges} (${newCharges})`, "info");
+        }
         sfx.shield();
+        if (resonance >= 2) sfx.resonance();
       } else if (jurus.defenseType === "dodge_counter") {
-        if (Date.now() < lompattCdRef.current) {
+        const cfg = RESONANCE_CONFIG.dodge_counter[lvl];
+        if (Date.now() < lompattCdRef.current && !cfg.resetCd) {
           showToast("LOMPAT cooldown!", "error");
           return false;
         }
         const cpuProjs = projsRef.current.filter((p) => !p.fromPlayer);
-        if (cpuProjs.length > 0) {
-          projsRef.current = projsRef.current.filter((p) => p.id !== cpuProjs[0].id);
-          setProjs([...projsRef.current]);
+        for (let i = 0; i < cfg.dodgeCount && i < cpuProjs.length; i++) {
+          projsRef.current = projsRef.current.filter((p) => p.id !== cpuProjs[i].id);
         }
-        if (jurus.counter) {
-          const dmg = Math.round(jurus.counter * charRef.current.damageMod);
-          cHPRef.current = Math.max(0, cHPRef.current - dmg);
+        setProjs([...projsRef.current]);
+        if (cfg.counter > 0) {
+          const counterDmg = Math.round(cfg.counter * charRef.current.damageMod);
+          cHPRef.current = Math.max(0, cHPRef.current - counterDmg);
           setCpuHP(cHPRef.current);
-          showToast(`LOMPAT! -${dmg}`, "success");
+          showToast(`LOMPAT! -${counterDmg}`, "success");
         }
-        lompattCdRef.current = Date.now() + LOMPAT_COOLDOWN;
-        setLompattCdEnd(lompattCdRef.current);
+        if (cfg.resetCd) {
+          lompattCdRef.current = 0;
+          setLompattCdEnd(0);
+        } else {
+          lompattCdRef.current = Date.now() + LOMPAT_COOLDOWN;
+          setLompattCdEnd(lompattCdRef.current);
+        }
         sfx.lompat();
+        if (resonance >= 2) sfx.resonance();
         checkWinLose();
       }
       return true;
@@ -342,19 +382,32 @@ export default function KetikFight() {
       const slot = slotsRef.current[slotIdx];
       if (!slot.jurus) return;
       const jurus = slot.jurus;
+      const resonance = detectResonance(slotsRef.current, slotIdx);
+      const lvl = (resonance || 1) as 1 | 2 | 3;
 
       if (jurus.type === "defense") {
-        const success = executeDefense(jurus);
+        const success = executeDefense(jurus, resonance);
         if (success === false) return;
       } else {
-        const dmg = Math.round(jurus.dmg * charRef.current.damageMod);
-        firePlayerAttack(jurus.word, dmg);
+        const cfg = RESONANCE_CONFIG.attack[lvl];
+        const baseDmg = Math.round(jurus.dmg * charRef.current.damageMod * cfg.dmgMult);
+        firePlayerAttack(jurus.word, baseDmg);
+        if (resonance >= 2) {
+          showToast(cfg.label, "success");
+          sfx.resonance();
+        }
       }
 
+      // Consume all matching slots
       const delay = getRefillDelay(jurus, charRef.current.refillMod);
-      slot.jurus = null;
-      slot.refillAt = Date.now() + delay;
-      slot.refillDuration = delay;
+      for (let i = 0; i < slotsRef.current.length; i++) {
+        const s = slotsRef.current[i];
+        if (s.jurus && s.jurus.word === jurus.word) {
+          s.jurus = null;
+          s.refillAt = Date.now() + delay + (i * 100);
+          s.refillDuration = delay + (i * 100);
+        }
+      }
       syncSlots();
       addUltCharge();
     },
@@ -409,6 +462,8 @@ export default function KetikFight() {
     shieldRef.current = 0;
     lompattCdRef.current = 0;
     parryCdRef.current = 0;
+    invulnRef.current = 0;
+    maxShieldRef.current = 3;
     phaseRef.current = "playing";
     totalCharsRef.current = 0;
     startTimeRef.current = 0;
@@ -436,6 +491,8 @@ export default function KetikFight() {
     setUltCharge(0);
     setUltReady(false);
     setCombo(0);
+    setParryCdEnd(0);
+    setInvulnEnd(0);
     syncSlots();
     setPhase("playing");
 
@@ -641,6 +698,7 @@ export default function KetikFight() {
             ultCharge={ultCharge}
             ultReady={ultReady}
             typedInput={input}
+            invulnEnd={invulnEnd}
           />
           <InputField
             value={input}
