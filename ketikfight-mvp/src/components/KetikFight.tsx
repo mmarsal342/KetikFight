@@ -13,6 +13,7 @@ import {
   getRandomAttack,
 } from "../gameData";
 
+import { sfx, setSoundEnabled } from "../sound";
 import HPBar from "./HPBar";
 import Stickman from "./Stickman";
 import ProjectileEl from "./Projectile";
@@ -55,6 +56,7 @@ export default function KetikFight() {
   const [playerGuarding, setPlayerGuarding] = useState(false);
   const [cpuGuarding, setCpuGuarding] = useState(false);
   const [toast, setToast] = useState<{ id: number; text: string; type: string } | null>(null);
+  const [soundOn, setSoundOn] = useState(true);
 
   const stopAll = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -88,10 +90,12 @@ export default function KetikFight() {
       phaseRef.current = "win";
       setPhase("win");
       stopAll();
+      sfx.win();
     } else if (pHPRef.current <= 0) {
       phaseRef.current = "lose";
       setPhase("lose");
       stopAll();
+      sfx.lose();
     }
   }, [stopAll]);
 
@@ -142,18 +146,22 @@ export default function KetikFight() {
           setCpuGuarding(true);
           setTimeout(() => setCpuGuarding(false), 200);
           showToast("CPU BLOCK!", "error");
+          sfx.cpuBlock();
         } else {
           cHPRef.current = Math.max(0, cHPRef.current - p.dmg);
           setCpuHP(cHPRef.current);
           showToast(`-${p.dmg}!`, "success");
+          sfx.hit();
         }
       } else if (shieldRef.current > 0) {
         shieldRef.current--;
         setShield(shieldRef.current);
         showToast("BLOCKED!", "info");
+        sfx.shield();
       } else {
         pHPRef.current = Math.max(0, pHPRef.current - p.dmg);
         setPlayerHP(pHPRef.current);
+        sfx.playerHit();
       }
     }
 
@@ -177,6 +185,7 @@ export default function KetikFight() {
       setProjs([...projsRef.current]);
       setPlayerGuarding(true);
       setTimeout(() => setPlayerGuarding(false), 150);
+      sfx.whoosh();
     },
     [],
   );
@@ -203,6 +212,7 @@ export default function KetikFight() {
         projsRef.current = projsRef.current.filter((p) => !removedIds.has(p.id));
         setProjs([...projsRef.current]);
         showToast(removed.length > 1 ? "TANGKIS x2!" : "TANGKIS!", "info");
+        sfx.clang();
       } else if (defense.type === "shield") {
         if (shieldRef.current >= MAX_PERISAI_CHARGES) {
           showToast("SHIELD MAX!", "error");
@@ -212,6 +222,7 @@ export default function KetikFight() {
         shieldRef.current = newCharges;
         setShield(newCharges);
         showToast(`SHIELD +2 (${newCharges})`, "info");
+        sfx.shield();
       } else if (defense.type === "dodge_counter") {
         const cpuProjs = projsRef.current.filter((p) => !p.fromPlayer);
         if (cpuProjs.length > 0) {
@@ -225,6 +236,7 @@ export default function KetikFight() {
         }
         lompattCdRef.current = Date.now() + LOMPAT_COOLDOWN;
         setLompattCdEnd(lompattCdRef.current);
+        sfx.lompat();
         checkWinLose();
       }
     },
@@ -235,6 +247,7 @@ export default function KetikFight() {
     (v: string) => {
       setInput(v);
       if (phaseRef.current !== "playing") return;
+      if (v.length > input.length) sfx.type();
 
       const attack = ATTACKS.find((a) => a.word === v);
       if (attack) {
@@ -276,7 +289,15 @@ export default function KetikFight() {
     setPhase("playing");
 
     cpuTimerRef.current = window.setTimeout(scheduleCpuAttack, 2000);
+    sfx.start();
   }, [stopAll, scheduleCpuAttack]);
+
+  const toggleSound = useCallback(() => {
+    const next = !soundOn;
+    setSoundOn(next);
+    setSoundEnabled(next);
+    if (next) sfx.type();
+  }, [soundOn]);
 
   // Partial match finder
   const partialMatch = (() => {
@@ -297,6 +318,14 @@ export default function KetikFight() {
     <div className="relative w-full h-screen bg-gray-950 overflow-hidden font-mono select-none">
       <ArenaBackground />
       <HUDBar wpm={wpm} phase={phase} />
+
+      {/* Sound Toggle */}
+      <button
+        onClick={toggleSound}
+        className="absolute top-4 right-4 z-30 px-3 py-1.5 bg-black/50 rounded-lg font-mono text-sm hover:bg-black/70 transition-colors"
+      >
+        {soundOn ? "🔊 ON" : "🔇 OFF"}
+      </button>
 
       {/* Arena */}
       <div className="absolute inset-0">
