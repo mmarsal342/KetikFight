@@ -18,10 +18,10 @@ export default function CharacterSelect({
   onFight,
 }: CharacterSelectProps) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm overflow-y-auto py-8">
+    <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm overflow-y-auto py-4 md:py-8">
       <div className="text-center font-mono max-w-3xl w-full px-4">
-        <h2 className="text-3xl font-bold text-white mb-1">PILIH KARAKTER</h2>
-        <p className="text-gray-500 text-xs mb-6">Tiap karakter punya jurus & passive berbeda</p>
+        <h2 className="text-xl md:text-3xl font-bold text-white mb-1">PILIH KARAKTER</h2>
+        <p className="text-gray-500 text-[10px] md:text-xs mb-4 md:mb-6">Tiap karakter punya jurus & passive berbeda</p>
 
         {/* Character cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

@@ -14,22 +14,22 @@ export default function OverlayPanel({ phase, wpm, difficulty, onStart, onRestar
   if (phase === "playing" || phase === "select") return null;
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
       <div className="text-center font-mono">
         {phase === "idle" && (
           <>
             <h1
-              className="text-6xl font-bold text-yellow-500 mb-2"
+              className="text-4xl md:text-6xl font-bold text-yellow-500 mb-2"
               style={{ textShadow: "0 0 20px rgba(253, 224, 71, 0.8)" }}
             >
               KETIK FIGHT
             </h1>
-            <p className="text-white text-sm mb-8 max-w-md mx-auto">
+            <p className="text-white text-xs md:text-sm mb-8 max-w-md mx-auto px-4">
               Game fighting di mana kata = jurus. Pilih karakter, ketik untuk menyerang & bertahan.
             </p>
             <button
               onClick={onStart}
-              className="px-8 py-4 bg-yellow-500 text-black font-bold text-xl rounded-lg hover:bg-yellow-400 transition-all"
+              className="px-8 py-4 bg-yellow-500 text-black font-bold text-lg md:text-xl rounded-lg hover:bg-yellow-400 transition-all"
             >
               MULAI
             </button>

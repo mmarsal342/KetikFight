@@ -47,8 +47,8 @@ export default function TutorialOverlay({ onClose }: TutorialOverlayProps) {
   const isLast = slide === SLIDES.length - 1;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-      <div className="max-w-md w-full bg-gray-900 rounded-2xl border border-gray-700 p-8 font-mono">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md p-3 md:p-4">
+      <div className="max-w-md w-full bg-gray-900 rounded-2xl border border-gray-700 p-5 md:p-8 font-mono">
         {/* Progress dots */}
         <div className="flex justify-center gap-1.5 mb-6">
           {SLIDES.map((_, i) => (
@@ -63,9 +63,9 @@ export default function TutorialOverlay({ onClose }: TutorialOverlayProps) {
 
         {/* Slide content */}
         <div className="text-center">
-          <div className="text-5xl mb-4">{SLIDES[slide].emoji}</div>
-          <h3 className="text-xl font-bold text-yellow-500 mb-3">{SLIDES[slide].title}</h3>
-          <p className="text-gray-300 text-sm leading-relaxed">{SLIDES[slide].body}</p>
+          <div className="text-4xl md:text-5xl mb-3 md:mb-4">{SLIDES[slide].emoji}</div>
+          <h3 className="text-lg md:text-xl font-bold text-yellow-500 mb-2 md:mb-3">{SLIDES[slide].title}</h3>
+          <p className="text-gray-300 text-xs md:text-sm leading-relaxed">{SLIDES[slide].body}</p>
         </div>
 
         {/* Buttons */}

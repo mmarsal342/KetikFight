@@ -657,11 +657,22 @@ export default function KetikFight() {
         <ComboDisplay combo={combo} />
       )}
 
-      {/* Parry cooldown indicator */}
+      {/* Parry cooldown indicator (desktop) */}
       {phase === "playing" && (
-        <div className="absolute top-4 right-24 z-20">
+        <div className="absolute top-4 right-24 z-20 hidden md:block">
           <ParryIndicator cdEnd={parryCdEnd} />
         </div>
+      )}
+
+      {/* Mobile parry button */}
+      {phase === "playing" && (
+        <button
+          onClick={tryParry}
+          className="md:hidden absolute bottom-40 right-4 z-30 w-16 h-16 rounded-full bg-cyan-600/80 border-2 border-cyan-400 font-mono font-bold text-white text-xs flex items-center justify-center active:scale-90 transition-transform"
+          style={{ boxShadow: "0 0 10px rgba(34, 211, 238, 0.4)" }}
+        >
+          PARRY
+        </button>
       )}
 
       {/* Parry flash overlay */}

@@ -15,8 +15,8 @@ export default function Stickman({ hp, maxHp, isPlayer, isGuarding }: StickmanPr
   return (
     <div
       className={`
-        absolute bottom-20 transition-all duration-200
-        ${isPlayer ? "left-[13%]" : "left-[87%]"}
+        absolute bottom-32 md:bottom-20 transition-all duration-200
+        ${isPlayer ? "left-[15%] md:left-[13%]" : "left-[85%] md:left-[87%]"}
       `}
       style={{
         color,
@@ -24,7 +24,7 @@ export default function Stickman({ hp, maxHp, isPlayer, isGuarding }: StickmanPr
         transform: `translateX(-50%) ${isGuarding ? "scale(1.1)" : ""}`,
       }}
     >
-      <svg width="60" height="100" viewBox="0 0 60 100" fill="none" stroke="currentColor" strokeWidth="3">
+      <svg width="48" height="80" viewBox="0 0 60 100" fill="none" stroke="currentColor" strokeWidth="3" className="md:w-[60px] md:h-[100px]">
         <circle cx="30" cy="15" r="10" />
         <line x1="30" y1="25" x2="30" y2="60" />
         <line x1="10" y1="40" x2="50" y2="40" />

@@ -55,7 +55,7 @@ export default function JurusSlots({
       )}
 
       {/* Regular slots */}
-      <div className="flex gap-2 justify-center">
+      <div className="flex gap-1.5 md:gap-2 justify-center">
         {slots.map((slot, i) => {
           if (!slot.jurus) {
             const progress = Math.min(
@@ -65,7 +65,7 @@ export default function JurusSlots({
             return (
               <div
                 key={i}
-                className="w-28 h-14 rounded-lg border border-gray-800 bg-gray-900/50 flex items-center justify-center"
+                className="w-[5.5rem] md:w-28 h-12 md:h-14 rounded-lg border border-gray-800 bg-gray-900/50 flex items-center justify-center"
               >
                 <div className="w-20 h-1 bg-gray-800 rounded overflow-hidden">
                   <div
@@ -87,7 +87,7 @@ export default function JurusSlots({
             <div
               key={i}
               className={`
-                relative w-28 h-14 rounded-lg border-2 px-2 py-1 flex flex-col items-center justify-center
+                relative w-[5.5rem] md:w-28 h-12 md:h-14 rounded-lg border-2 px-1.5 md:px-2 py-1 flex flex-col items-center justify-center
                 transition-all ${tierBg[j.tier]}
                 ${matched ? "scale-105 " + tierColors[j.tier] : "border-gray-700"}
                 ${isDefense ? "ring-1 ring-cyan-500/50" : ""}
@@ -111,7 +111,7 @@ export default function JurusSlots({
 
               <div className="flex items-center gap-1">
                 {matched ? (
-                  <span className="font-mono font-bold text-sm tracking-wider">
+                  <span className="font-mono font-bold text-xs md:text-sm tracking-wider">
                     {j.word.split("").map((ch, ci) => (
                       <span key={ci} className={ci < typedInput.length ? "text-green-400" : "text-gray-600"}>
                         {ch}
@@ -119,7 +119,7 @@ export default function JurusSlots({
                     ))}
                   </span>
                 ) : (
-                  <span className={`font-mono font-bold text-sm tracking-wider ${isDefense ? "text-cyan-400" : ""}`}>
+                  <span className={`font-mono font-bold text-xs md:text-sm tracking-wider ${isDefense ? "text-cyan-400" : ""}`}>
                     {j.word}
                   </span>
                 )}
