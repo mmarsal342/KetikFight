@@ -33,6 +33,7 @@ import JurusSlots from "./JurusSlots";
 import CharacterSelect from "./CharacterSelect";
 import TutorialOverlay from "./TutorialOverlay";
 import Footer from "./Footer";
+import IncomingWarning from "./IncomingWarning";
 
 const PARRY_WINDOW = 0.65;
 const PARRY_COOLDOWN = 1000;
@@ -718,9 +719,10 @@ export default function KetikFight() {
         </div>
       )}
 
-      {/* Bottom UI — Slots + Input */}
+      {/* Bottom UI — Warning + Slots + Input */}
       {phase === "playing" && (
-        <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
+        <div className="absolute bottom-0 left-0 right-0 p-2 md:p-4 space-y-2">
+          <IncomingWarning projectiles={projs} />
           <JurusSlots
             slots={slots}
             character={character}
