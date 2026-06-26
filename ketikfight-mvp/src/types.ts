@@ -6,6 +6,7 @@ export interface Projectile {
   dmg: number;
   fromPlayer: boolean;
   t0: number;
+  isUltimate?: boolean;
 }
 
 export interface AttackWord {

@@ -173,17 +173,24 @@ export default function KetikFight() {
       done.add(p.id);
 
       if (p.fromPlayer) {
-        const blockChance = getCpuBlockChance(cHPRef.current);
-        if (Math.random() < blockChance) {
-          setCpuGuarding(true);
-          setTimeout(() => setCpuGuarding(false), 200);
-          showToast("CPU BLOCK!", "error");
-          sfx.cpuBlock();
-        } else {
+        if (p.isUltimate) {
           cHPRef.current = Math.max(0, cHPRef.current - p.dmg);
           setCpuHP(cHPRef.current);
-          showToast(`-${p.dmg}!`, "success");
-          sfx.hit();
+          showToast(`ULTIMATE! -${p.dmg}!`, "success");
+          sfx.ultFire();
+        } else {
+          const blockChance = getCpuBlockChance(cHPRef.current);
+          if (Math.random() < blockChance) {
+            setCpuGuarding(true);
+            setTimeout(() => setCpuGuarding(false), 200);
+            showToast("CPU BLOCK!", "error");
+            sfx.cpuBlock();
+          } else {
+            cHPRef.current = Math.max(0, cHPRef.current - p.dmg);
+            setCpuHP(cHPRef.current);
+            showToast(`-${p.dmg}!`, "success");
+            sfx.hit();
+          }
         }
       } else if (shieldRef.current > 0) {
         shieldRef.current--;
@@ -216,19 +223,20 @@ export default function KetikFight() {
   }, [frame, phase, checkWinLose, showToast, syncSlots]);
 
   const firePlayerAttack = useCallback(
-    (word: string, dmg: number) => {
+    (word: string, dmg: number, isUltimate: boolean = false) => {
       const proj: Projectile = {
         id: ++pidRef.current,
         word,
         dmg,
         fromPlayer: true,
         t0: Date.now(),
+        isUltimate,
       };
       projsRef.current = [...projsRef.current, proj];
       setProjs([...projsRef.current]);
       setPlayerGuarding(true);
       setTimeout(() => setPlayerGuarding(false), 150);
-      sfx.whoosh();
+      if (!isUltimate) sfx.whoosh();
     },
     [],
   );
@@ -311,9 +319,8 @@ export default function KetikFight() {
     if (!ultReadyRef.current) return;
     const ult = charRef.current.ultimate;
     const dmg = Math.round(ult.dmg * charRef.current.damageMod);
-    firePlayerAttack(ult.word, dmg);
+    firePlayerAttack(ult.word, dmg, true);
     showToast(`${ult.word}!`, "success");
-    sfx.ultFire();
 
     ultChargeRef.current = 0;
     ultReadyRef.current = false;
