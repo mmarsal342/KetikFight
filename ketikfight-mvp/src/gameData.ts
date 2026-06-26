@@ -49,6 +49,9 @@ export interface DifficultyConfig {
   maxDelay: number;
   pool: AttackWord[];
   maxProjs: number;
+  cpuHP: number;
+  damageReduction: number;
+  blockMult: number;
 }
 
 export const DIFFICULTIES: Record<Difficulty, DifficultyConfig> = {
@@ -59,6 +62,9 @@ export const DIFFICULTIES: Record<Difficulty, DifficultyConfig> = {
     maxDelay: 8000,
     pool: CPU_POOL.filter((a) => a.tier === 1),
     maxProjs: 1,
+    cpuHP: 80,
+    damageReduction: 0,
+    blockMult: 0.6,
   },
   normal: {
     label: "NORMAL",
@@ -67,6 +73,9 @@ export const DIFFICULTIES: Record<Difficulty, DifficultyConfig> = {
     maxDelay: 5000,
     pool: CPU_POOL.filter((a) => a.tier === 1 || a.tier === 2),
     maxProjs: 2,
+    cpuHP: 120,
+    damageReduction: 0.10,
+    blockMult: 0.8,
   },
   keras: {
     label: "KERAS",
@@ -75,6 +84,9 @@ export const DIFFICULTIES: Record<Difficulty, DifficultyConfig> = {
     maxDelay: 3500,
     pool: [...CPU_POOL],
     maxProjs: 2,
+    cpuHP: 160,
+    damageReduction: 0.20,
+    blockMult: 1.0,
   },
   gila: {
     label: "GILA",
@@ -83,6 +95,9 @@ export const DIFFICULTIES: Record<Difficulty, DifficultyConfig> = {
     maxDelay: 2500,
     pool: [...CPU_POOL],
     maxProjs: 3,
+    cpuHP: 200,
+    damageReduction: 0.30,
+    blockMult: 1.2,
   },
 };
 
@@ -98,9 +113,12 @@ export function getRandomAttack(pool: AttackWord[]): AttackWord {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-export function getCpuBlockChance(cpuHP: number): number {
-  for (const tier of CPU_DEFENSE_TIERS) {
-    if (cpuHP <= tier.hpThreshold) return tier.blockChance;
-  }
-  return 0;
+export function getCpuBlockChance(cpuHP: number, maxHP: number, blockMult: number): number {
+  const ratio = cpuHP / maxHP;
+  let baseChance: number;
+  if (ratio <= 0.2) baseChance = 0.45;
+  else if (ratio <= 0.4) baseChance = 0.30;
+  else if (ratio <= 0.7) baseChance = 0.15;
+  else baseChance = 0;
+  return Math.min(0.6, baseChance * blockMult);
 }

@@ -10,6 +10,7 @@ import type { Difficulty } from "../gameData";
 import {
   CHARACTERS,
   ULT_THRESHOLD,
+  getComboMultiplier,
   createDeckManager,
   getRefillDelay,
 } from "../characters";
@@ -25,6 +26,7 @@ import ShieldIndicator from "./ShieldIndicator";
 import LompattCdIndicator from "./LompattCdIndicator";
 import InputField from "./InputField";
 import HUDBar from "./HUDBar";
+import ComboDisplay from "./ComboDisplay";
 import JurusSlots from "./JurusSlots";
 import CharacterSelect from "./CharacterSelect";
 
@@ -32,6 +34,10 @@ export default function KetikFight() {
   // Refs — game logic source of truth
   const pHPRef = useRef<number>(MAX_HP);
   const cHPRef = useRef<number>(MAX_HP);
+  const cMaxHPRef = useRef<number>(120);
+  const dmgReduceRef = useRef<number>(0.10);
+  const blockMultRef = useRef<number>(0.8);
+  const comboRef = useRef<number>(0);
   const projsRef = useRef<Projectile[]>([]);
   const shieldRef = useRef<number>(0);
   const phaseRef = useRef<GamePhase>("idle");
@@ -54,7 +60,8 @@ export default function KetikFight() {
 
   // State — render triggers
   const [playerHP, setPlayerHP] = useState(MAX_HP);
-  const [cpuHP, setCpuHP] = useState(MAX_HP);
+  const [cpuHP, setCpuHP] = useState(120);
+  const [cpuMaxHP, setCpuMaxHP] = useState(120);
   const [projs, setProjs] = useState<Projectile[]>([]);
   const [shield, setShield] = useState(0);
   const [phase, setPhase] = useState<GamePhase>("idle");
@@ -72,6 +79,7 @@ export default function KetikFight() {
   const [slots, setSlots] = useState<SlotState[]>([]);
   const [ultCharge, setUltCharge] = useState(0);
   const [ultReady, setUltReady] = useState(false);
+  const [combo, setCombo] = useState(0);
 
   const character = charRef.current;
 
@@ -120,6 +128,27 @@ export default function KetikFight() {
     setSlots(slotsRef.current.map((s) => ({ ...s })));
   }, []);
 
+  const addCombo = useCallback(() => {
+    const prev = comboRef.current;
+    comboRef.current++;
+    setCombo(comboRef.current);
+    const prevTier = getComboMultiplier(prev);
+    const newTier = getComboMultiplier(comboRef.current);
+    if (newTier.tier && (!prevTier.tier || newTier.tier.threshold > prevTier.tier.threshold)) {
+      showToast(`${newTier.tier.label}! x${newTier.tier.multiplier}`, "success");
+      sfx.ultReady();
+    }
+  }, [showToast]);
+
+  const resetCombo = useCallback(() => {
+    if (comboRef.current >= 3) {
+      showToast("COMBO BREAK!", "error");
+      sfx.playerHit();
+    }
+    comboRef.current = 0;
+    setCombo(0);
+  }, [showToast]);
+
   const addUltCharge = useCallback(() => {
     if (ultReadyRef.current) return;
     ultChargeRef.current++;
@@ -166,6 +195,7 @@ export default function KetikFight() {
     if (phase !== "playing") return;
     const now = Date.now();
     const done = new Set<number>();
+    let playerTookDamage = false;
 
     for (const p of projsRef.current) {
       const progress = (now - p.t0) / TRAVEL_MS;
@@ -179,17 +209,19 @@ export default function KetikFight() {
           showToast(`ULTIMATE! -${p.dmg}!`, "success");
           sfx.ultFire();
         } else {
-          const blockChance = getCpuBlockChance(cHPRef.current);
+          const blockChance = getCpuBlockChance(cHPRef.current, cMaxHPRef.current, blockMultRef.current);
           if (Math.random() < blockChance) {
             setCpuGuarding(true);
             setTimeout(() => setCpuGuarding(false), 200);
             showToast("CPU BLOCK!", "error");
             sfx.cpuBlock();
           } else {
-            cHPRef.current = Math.max(0, cHPRef.current - p.dmg);
+            const finalDmg = Math.max(1, Math.round(p.dmg * (1 - dmgReduceRef.current)));
+            cHPRef.current = Math.max(0, cHPRef.current - finalDmg);
             setCpuHP(cHPRef.current);
-            showToast(`-${p.dmg}!`, "success");
+            showToast(`-${finalDmg}!`, "success");
             sfx.hit();
+            addCombo();
           }
         }
       } else if (shieldRef.current > 0) {
@@ -201,8 +233,11 @@ export default function KetikFight() {
         pHPRef.current = Math.max(0, pHPRef.current - p.dmg);
         setPlayerHP(pHPRef.current);
         sfx.playerHit();
+        playerTookDamage = true;
       }
     }
+
+    if (playerTookDamage) resetCombo();
 
     if (done.size > 0) {
       projsRef.current = projsRef.current.filter((p) => !done.has(p.id));
@@ -220,14 +255,19 @@ export default function KetikFight() {
       }
     }
     if (slotsChanged) syncSlots();
-  }, [frame, phase, checkWinLose, showToast, syncSlots]);
+  }, [frame, phase, checkWinLose, showToast, syncSlots, addCombo, resetCombo]);
 
   const firePlayerAttack = useCallback(
     (word: string, dmg: number, isUltimate: boolean = false) => {
+      let finalDmg = dmg;
+      if (!isUltimate) {
+        const { mult } = getComboMultiplier(comboRef.current);
+        finalDmg = Math.round(dmg * mult);
+      }
       const proj: Projectile = {
         id: ++pidRef.current,
         word,
-        dmg,
+        dmg: finalDmg,
         fromPlayer: true,
         t0: Date.now(),
         isUltimate,
@@ -304,7 +344,6 @@ export default function KetikFight() {
         firePlayerAttack(jurus.word, dmg);
       }
 
-      // Trigger refill
       const delay = getRefillDelay(jurus, charRef.current.refillMod);
       slot.jurus = null;
       slot.refillAt = Date.now() + delay;
@@ -334,7 +373,6 @@ export default function KetikFight() {
       if (phaseRef.current !== "playing") return;
       if (v.length > input.length) sfx.type();
 
-      // Check regular slots
       const slotIdx = slotsRef.current.findIndex((s) => s.jurus && s.jurus.word === v);
       if (slotIdx >= 0) {
         useSlot(slotIdx);
@@ -343,7 +381,6 @@ export default function KetikFight() {
         return;
       }
 
-      // Check ultimate
       if (ultReadyRef.current && charRef.current.ultimate.word === v) {
         useUltimate();
         setInput("");
@@ -354,8 +391,13 @@ export default function KetikFight() {
   );
 
   const beginPlay = useCallback(() => {
+    const diff = DIFFICULTIES[diffRef.current];
+
     pHPRef.current = MAX_HP;
-    cHPRef.current = MAX_HP;
+    cHPRef.current = diff.cpuHP;
+    cMaxHPRef.current = diff.cpuHP;
+    dmgReduceRef.current = diff.damageReduction;
+    blockMultRef.current = diff.blockMult;
     projsRef.current = [];
     shieldRef.current = 0;
     lompattCdRef.current = 0;
@@ -365,8 +407,8 @@ export default function KetikFight() {
     pidRef.current = 0;
     ultChargeRef.current = 0;
     ultReadyRef.current = false;
+    comboRef.current = 0;
 
-    // Init deck & slots
     deckMgrRef.current = createDeckManager(charRef.current);
     slotsRef.current = [
       { jurus: deckMgrRef.current.draw(), refillAt: 0, refillDuration: 0 },
@@ -375,7 +417,8 @@ export default function KetikFight() {
     ];
 
     setPlayerHP(MAX_HP);
-    setCpuHP(MAX_HP);
+    setCpuHP(diff.cpuHP);
+    setCpuMaxHP(diff.cpuHP);
     setProjs([]);
     setShield(0);
     setWpm(0);
@@ -384,6 +427,7 @@ export default function KetikFight() {
     setLompattCdEnd(0);
     setUltCharge(0);
     setUltReady(false);
+    setCombo(0);
     syncSlots();
     setPhase("playing");
 
@@ -395,10 +439,12 @@ export default function KetikFight() {
     initAudio();
     stopAll();
 
+    const diff = DIFFICULTIES[diffRef.current];
     pHPRef.current = MAX_HP;
-    cHPRef.current = MAX_HP;
+    cHPRef.current = diff.cpuHP;
     setPlayerHP(MAX_HP);
-    setCpuHP(MAX_HP);
+    setCpuHP(diff.cpuHP);
+    setCpuMaxHP(diff.cpuHP);
     setProjs([]);
     setPhase("idle");
     setCountdown(3);
@@ -436,7 +482,6 @@ export default function KetikFight() {
     }
   }, [soundOn]);
 
-  // Partial match — check active slots + ult
   const partialMatch = (() => {
     if (!input || input.length < 1) return null;
     for (const slot of slotsRef.current) {
@@ -472,10 +517,15 @@ export default function KetikFight() {
         </div>
       )}
 
+      {/* Combo Display */}
+      {phase === "playing" && combo >= 3 && (
+        <ComboDisplay combo={combo} />
+      )}
+
       {/* Arena */}
       <div className="absolute inset-0">
         <Stickman hp={playerHP} maxHp={MAX_HP} isPlayer={true} isGuarding={playerGuarding} />
-        <Stickman hp={cpuHP} maxHp={MAX_HP} isPlayer={false} isGuarding={cpuGuarding} />
+        <Stickman hp={cpuHP} maxHp={cpuMaxHP} isPlayer={false} isGuarding={cpuGuarding} />
         {projs.map((p) => (
           <ProjectileEl key={p.id} p={p} />
         ))}
@@ -483,7 +533,7 @@ export default function KetikFight() {
 
       {/* HP Bars */}
       <HPBar hp={playerHP} maxHp={MAX_HP} isPlayer={true} phase={phase} />
-      <HPBar hp={cpuHP} maxHp={MAX_HP} isPlayer={false} phase={phase} />
+      <HPBar hp={cpuHP} maxHp={cpuMaxHP} isPlayer={false} phase={phase} />
 
       {/* Indicators */}
       <ShieldIndicator charges={shield} />
@@ -571,9 +621,12 @@ export default function KetikFight() {
   );
 }
 
-function getCpuBlockChance(cpuHP: number): number {
-  if (cpuHP <= 20) return 0.45;
-  if (cpuHP <= 40) return 0.30;
-  if (cpuHP <= 70) return 0.15;
-  return 0;
+function getCpuBlockChance(cpuHP: number, maxHP: number, blockMult: number): number {
+  const ratio = cpuHP / maxHP;
+  let baseChance: number;
+  if (ratio <= 0.2) baseChance = 0.45;
+  else if (ratio <= 0.4) baseChance = 0.30;
+  else if (ratio <= 0.7) baseChance = 0.15;
+  else baseChance = 0;
+  return Math.min(0.6, baseChance * blockMult);
 }

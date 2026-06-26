@@ -40,6 +40,28 @@ export const REFILL_DELAYS: Record<number, number> = {
   3: 1500,
 };
 
+export interface ComboTier {
+  threshold: number;
+  label: string;
+  multiplier: number;
+  color: string;
+}
+
+export const COMBO_TIERS: ComboTier[] = [
+  { threshold: 3, label: "Beruntun", multiplier: 1.10, color: "#4ade80" },
+  { threshold: 5, label: "Ganas", multiplier: 1.20, color: "#fbbf24" },
+  { threshold: 8, label: "Badai", multiplier: 1.35, color: "#fb923c" },
+  { threshold: 12, label: "LAGA SEMPURNA", multiplier: 1.50, color: "#ef4444" },
+];
+
+export function getComboMultiplier(combo: number): { mult: number; tier: ComboTier | null } {
+  let result: { mult: number; tier: ComboTier | null } = { mult: 1.0, tier: null };
+  for (const t of COMBO_TIERS) {
+    if (combo >= t.threshold) result = { mult: t.multiplier, tier: t };
+  }
+  return result;
+}
+
 export const CHARACTERS: Character[] = [
   {
     id: "pendekar",
