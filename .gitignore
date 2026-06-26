@@ -1,1 +1,5 @@
 .DS_Store
+
+# MVP
+ketikfight-mvp/node_modules/
+ketikfight-mvp/dist/
