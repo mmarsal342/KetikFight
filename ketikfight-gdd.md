@@ -110,13 +110,13 @@ Tiga mekanisme defense, masing-masing dengan tradeoff berbeda:
 
 | Kata | Karakter | Efek | Tradeoff |
 |---|---|---|---|
-| **TANGKIS** | 7 huruf | Hapus 1 proyektil CPU yang aktif | Harus ada proyektil aktif untuk efektif |
-| **PERISAI** | 7 huruf | Auto-block 2 proyektil berikutnya (shield charges) | Tidak ada proyektil yang langsung dihapus |
-| **LOMPAT** | 6 huruf | Hapus 1 proyektil + counter 8 damage ke CPU | Paling efisien tapi counter-nya kecil |
+| **TANGKIS** | 7 huruf | Hapus 1 proyektil CPU yang aktif **(2 proyektil terdekat)** | Harus ada proyektil aktif untuk efektif |
+| **PERISAI** | 7 huruf | Auto-block 2 proyektil berikutnya (shield charges, max 3) | Tidak ada proyektil yang langsung dihapus |
+| **LOMPAT** | 6 huruf | Hapus 1 proyektil + counter 5 damage ke CPU, 8 detik cooldown | Counter damage lebih kecil, ada cooldown |
 
-**Design note:** LOMPAT adalah kata terpendek di antara 3 defense, tapi efeknya gabungan dodge + counter. Ini intentional — reward buat yang bisa react cepat.
+**Design note rebalanced (v0.5):** TANGKIS dibuff menjadi 2 proyektil sekaligus (tradeoff: butuh timing sempurna saat ada multiple projectiles). LOMPAT diberi cooldown 8 detik untuk mencegah spam, dan counter damage turun dari 8 ke 5. Ini menciptakan pilihan strategi yang lebih menarik.
 
-**Shield management (PERISAI):** Charges disimpan. Jika player punya 2 charges dan CPU nembak 2 proyektil sekaligus, keduanya ter-block otomatis. Jika charge habis sebelum proyektil tiba, player kena damage.
+**Shield management (PERISAI):** Charges disimpan, **maksimal 3 charges**. Jika player punya 2 charges dan CPU nembak 2 proyektil sekaligus, keduanya ter-block otomatis. Jika charge habis sebelum proyektil tiba, player kena damage. MAX 3 charges = anti-spam PERISAI.
 
 ### 3.5 HP System
 | Parameter | Nilai |
@@ -128,22 +128,36 @@ Tiga mekanisme defense, masing-masing dengan tradeoff berbeda:
 | Damage floor | 10 (tidak ada kata dengan damage < 10) |
 
 ### 3.6 WPM Tracking
-- **Formula:** `WPM = (total kata berhasil diketik) / (menit sejak game start)`
+- **Formula (Standar):** `WPM = (total karakter berhasil diketik / 5) / (menit sejak game start)`
+  - Ini adalah standar industri (5 karakter = 1 "word"), kompatibel dengan Jari Santri dan typing game lainnya.
 - Dihitung **real-time**, update setiap kata berhasil
-- Menghitung attack words DAN defense words
+- Menghitung karakter dari SEMUA kata yang berhasil (attack + defense)
+- WPM grace period: hitung hanya setelah 5 detik pertama game dimulai (menghindari angka di awal yang ekstrem)
 - Ditampilkan di HUD selama bermain, WPM final di layar Win/Lose
 
 ---
 
 ## 4. CPU OPPONENT
 
-### 4.1 Behavior (MVP)
-CPU tidak "berpikir" — ia adalah **timer-based attacker**. Setiap interval tertentu, CPU random-pick 1 kata dari attack pool-nya dan tembakkan sebagai proyektil ke player. CPU tidak memiliki:
-- Defense (tidak bisa block serangan player)
-- Reaction terhadap HP player
-- Strategi adaptif
+### 4.1 Behavior (MVP → v0.5)
+CPU adalah **timer-based attacker**. Setiap interval tertentu, CPU random-pick 1 kata dari attack pool-nya dan tembakkan sebagai proyektil ke player.
 
-Ini **intentional untuk MVP** — menghilangkan kompleksitas AI sehingga focus ada pada mechanic mengetik.
+**CPU Passive Defense (v0.5):**
+CPU memiliki passive block chance yang meningkat seiring HP-nya berkurang. Ini mencegah game menjadi pure DPS race dan memberikan comeback mechanic.
+
+| CPU HP Tersisa | Block Chance | Efek |
+|---|---|---|
+| 100–71 HP | 0% | No defense |
+| 70–41 HP | 15% | 15% proyektil player di-block (visual: CPU stance guard) |
+| 40–21 HP | 30% | 30% proyektil player di-block |
+| 20–1 HP | 45% | 45% proyektil player di-block (near-death desperation mode) |
+
+**CPU tidak memiliki:**
+- Active defense (tidak bisa TANGKIS/PERISAI/LOMPAT)
+- Reaction terhadap HP player selain passive block
+- Strategi adaptif (v2)
+
+**Design rationale:** Passive block memberikan negative feedback loop natural — makin CPU kritis, makin susah kill, tapi tidak bikin game impossible. High-WPM player masih bisa out-DPS block chance.
 
 ### 4.2 Difficulty Scaling (v1)
 

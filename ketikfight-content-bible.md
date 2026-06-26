@@ -15,13 +15,15 @@
 5. **Thematically grouped.** Kata diorganisir per tema agar expansion bisa dilakukan modular.
 
 ### Damage Formula
+Damage values di-tuning manual untuk feel, bukan derived strict dari formula. Rumus kasar sebagai referensi:
 ```
-Damage = base_per_char × jumlah_karakter × tier_multiplier
+Damage ≈ 4.5 × jumlah_karakter × tier_multiplier
 ```
-- **Base per char:** 4.5 damage per huruf
+- **Base per char:** ~4.5 damage per huruf (tuning point)
 - **Tier multiplier:** Tier 1 = 0.8×, Tier 2 = 1.0×, Tier 3 = 1.1×, Tier 4 = 1.2×
+- Final damage dibulatkan ke bilangan genap untuk readability
 
-*Dibulatkan ke bilangan genap untuk readability.*
+*Note:* Nilai di tabel adalah hasil tuning manual (playtested), bukan kalkulasi rigid. Formula hanya guideline.
 
 ---
 
@@ -84,9 +86,14 @@ Damage = base_per_char × jumlah_karakter × tier_multiplier
 
 | Kata | Karakter | Tipe | Efek Detail | Cooldown |
 |---|---|---|---|---|
-| **TANGKIS** | 7 | Block | Hapus 1 proyektil CPU aktif (yang paling dekat) | Tidak ada |
-| **PERISAI** | 7 | Shield | Tambah 2 auto-block charges (berlaku sampai habis) | Tidak ada |
-| **LOMPAT** | 6 | Dodge + Counter | Hapus 1 proyektil CPU + deal 8 damage ke CPU | Tidak ada |
+| **TANGKIS** | 7 | Block | Hapus **2 proyektil** CPU terdekat (atau 1 jika hanya 1 aktif) | Tidak ada |
+| **PERISAI** | 7 | Shield | Tambah 2 auto-block charges (max 3 charges) | Tidak ada |
+| **LOMPAT** | 6 | Dodge + Counter | Hapus 1 proyektil CPU + deal 5 damage ke CPU | 8 detik |
+
+**Balance changes (v0.5):**
+- **TANGKIS:** Sekarang hapus 2 proyektit sekaligus. Ini menyeimbangkan panjangnya (7 char) dengan LOMPAT (6 char) tapi memberikan utility berbeda.
+- **LOMPAT:** Counter damage turun 8→5, ditambah cooldown 8 detik. Tidak bisa spam.
+- **PERISAI:** Max charge limit 3. Mencegah infinite shield stacking di early game.
 
 ### Defense Words — Expansion (v1+)
 
@@ -139,19 +146,21 @@ Cek ini harus dijalankan setiap ada penambahan kata baru ke pool. Aturan:
 
 ## 6. WPM TIER SYSTEM
 
-WPM dihitung dari semua kata yang berhasil dieksekusi (attack + defense) selama satu session.
+WPM dihitung menggunakan standar industri: `WPM = (total karakter / 5) / menit`. Ini kompatibel dengan Jari Santri dan typing game lainnya.
 
 | Range WPM | Tier Label | Badge |
 |---|---|---|
-| < 20 | Pemula 🐢 | Bronze |
-| 20–34 | Pelajar 📚 | Bronze+ |
-| 35–49 | Terampil ⚔️ | Silver |
-| 50–69 | Jagoan 🥊 | Silver+ |
-| 70–89 | Master Jari 🔥 | Gold |
-| 90–109 | Legenda Kata 👑 | Gold+ |
-| 110+ | Sang Maestro ⚡ | Platinum |
+| < 25 | Pemula 🐢 | Bronze |
+| 25–39 | Pelajar 📚 | Bronze+ |
+| 40–54 | Terampil ⚔️ | Silver |
+| 55–69 | Jagoan 🥊 | Silver+ |
+| 70–84 | Master Jari 🔥 | Gold |
+| 85–99 | Legenda Kata 👑 | Gold+ |
+| 100+ | Sang Maestro ⚡ | Platinum |
 
-**WPM di atas 70 untuk kata-kata fighting Indonesia** dianggap sangat mahir, karena kata-katanya bukan kata sehari-hari dan membutuhkan muscle memory tersendiri.
+**Threshold di-adjust** untuk standar 5-char WPM. Sebelumnya terlalu rendah (banyak yang hit 70+ padahal itu "kata fighting Indonesia" yang panjang-panjang).
+- Grace period: 5 detik pertama tidak dihitung dalam WPM (menghindari angka ekstrem di awal)
+- Semua karakter (huruf saja) dihitung, baik attack maupun defense
 
 ---
 

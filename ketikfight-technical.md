@@ -70,6 +70,11 @@ const cHPRef     = useRef<number>(MAX_HP);
 const projsRef   = useRef<Projectile[]>([]);
 const shieldRef  = useRef<number>(0);
 const phaseRef   = useRef<GamePhase>("idle");
+const lompattCdRef = useRef<number>(0); // LOMPAT cooldown timestamp
+
+// WPM tracking refs
+const totalCharsRef = useRef<number>(0);
+const startTimeRef = useRef<number>(0);
 
 // State = trigger untuk React re-render (display only)
 const [playerHP, setPlayerHP] = useState(MAX_HP);
@@ -77,6 +82,7 @@ const [cpuHP, setCpuHP]       = useState(MAX_HP);
 const [projs, setProjs]       = useState<Projectile[]>([]);
 const [shield, setShield]     = useState(0);
 const [phase, setPhase]       = useState<GamePhase>("idle");
+const [wpm, setWpm]           = useState(0);
 ```
 
 **Rule:** Semua game logic membaca dari Ref. Setelah logic selesai, panggil setState untuk sync ke React. Tidak pernah membaca state langsung di dalam RAF callback atau setTimeout.
@@ -103,6 +109,11 @@ useEffect(() => {
   const now = Date.now();
   const done = new Set<number>();
   
+  // Update LOMPAT cooldown indicator
+  if (lompattCdRef.current > 0 && now > lompattCdRef.current) {
+    lompattCdRef.current = 0;
+  }
+  
   for (const p of projsRef.current) {
     const progress = (now - p.t0) / TRAVEL_MS;
     if (progress < 1) continue;
@@ -110,20 +121,37 @@ useEffect(() => {
     done.add(p.id);
     
     if (p.fromPlayer) {
-      // Deal damage to CPU
+      // CPU passive defense check
+      const cpuHP = cHPRef.current;
+      let blockChance = 0;
+      if (cpuHP <= 20) blockChance = 0.45;
+      else if (cpuHP <= 40) blockChance = 0.30;
+      else if (cpuHP <= 70) blockChance = 0.15;
+      
+      if (Math.random() < blockChance) {
+        // CPU blocked - visual feedback, no damage
+        showCpuGuardEffect();
+      } else {
+        // Deal damage to CPU
+        cHPRef.current = Math.max(0, cpuHP - p.dmg);
+        setCpuHP(cHPRef.current);
+      }
     } else if (shieldRef.current > 0) {
       // Auto-block via PERISAI
       shieldRef.current--;
       setShield(shieldRef.current);
     } else {
       // Deal damage to player
+      pHPRef.current = Math.max(0, pHPRef.current - p.dmg);
+      setPlayerHP(pHPRef.current);
     }
   }
   
   if (done.size > 0) {
     projsRef.current = projsRef.current.filter(p => !done.has(p.id));
     setProjs([...projsRef.current]);
-    // update HP state, check win/lose
+    // check win/lose condition
+    checkWinLose();
   }
 }, [frame, phase]);
 ```
@@ -197,17 +225,51 @@ const handleInput = (e: ChangeEvent<HTMLInputElement>) => {
   if (attack) {
     firePlayerProjectile(attack);
     setInput(""); // clear input immediately
-    updateWPM();
+    updateWPM(attack.word.length);
     return;
   }
   
   // Check defense words
   const defense = DEFENSES[v];
   if (defense) {
+    // Check LOMPAT cooldown
+    if (defense.type === "dodge_counter" && Date.now() < lompattCdRef.current) {
+      showCooldownWarning();
+      return;
+    }
+    
     executeDefense(defense);
+    
+    // Set LOMPAT cooldown if applicable
+    if (defense.type === "dodge_counter") {
+      lompattCdRef.current = Date.now() + 8000; // 8 detik
+    }
+    
     setInput("");
-    updateWPM();
+    updateWPM(defense.word.length);
   }
+};
+```
+
+**WPM Calculation (Standar Industri):**
+```typescript
+const updateWPM = (charsTyped: number) => {
+  const now = Date.now();
+  
+  // Grace period 5 detik di awal
+  if (!startTimeRef.current) {
+    startTimeRef.current = now;
+    return;
+  }
+  
+  const elapsedSec = (now - startTimeRef.current) / 1000;
+  if (elapsedSec < 5) return; // belum hitung
+  
+  totalCharsRef.current += charsTyped;
+  const elapsedMin = elapsedSec / 60;
+  const wpm = Math.round((totalCharsRef.current / 5) / elapsedMin);
+  
+  setWpm(wpm);
 };
 ```
 
@@ -216,6 +278,8 @@ const handleInput = (e: ChangeEvent<HTMLInputElement>) => {
 - **Uppercase forced:** Eliminasi case-sensitivity confusion.
 - **Non-alpha stripped:** Spasi, angka, dll tidak diinput — mencegah false partial matches.
 - **Clear on match:** Input di-clear segera setelah kata berhasil untuk reset state.
+- **LOMPAT cooldown:** 8 detik, diperiksa sebelum execute.
+- **WPM standar:** (karakter / 5) / menit, grace period 5 detik.
 
 ---
 
@@ -239,13 +303,22 @@ interface AttackWord {
 }
 
 interface DefenseWord {
-  type: "block" | "shield" | "dodge";
-  charges: number;
+  type: "block" | "shield" | "dodge_counter";
+  charges?: number;
   counter?: number;
-  label: string;
+  word: string;
 }
 
 type DefenseMap = Record<string, DefenseWord>;
+
+// LOMPAT cooldown (ms)
+const LOMPAT_COOLDOWN = 8000;
+
+// CPU passive defense config
+interface CpuDefenseConfig {
+  hpThreshold: number;
+  blockChance: number;
+}
 ```
 
 ---
@@ -303,12 +376,17 @@ const startGame = () => {
 
 ---
 
-## 11. TECH DEBT / KNOWN ISSUES (Prototype)
+## 11. TECH DEBT / KNOWN ISSUES (v0.5)
 
 | Issue | Severity | Catatan |
 |---|---|---|
 | Stickman tidak animasi selain hit flash | Low | Perlu pose cycle: idle, attack, defend |
-| WPM acro pertama tidak akurat (menit < 0.1) | Low | Tambah grace period 5 detik sebelum hitung WPM |
-| CPU timer tidak scale dengan difficulty | Medium | Hardcoded di prototype. Perlu config object |
-| Shield indicator posisi overlap dengan stickman di layar kecil | Low | Fix dengan flexbox |
+| CPU passive block visual feedback belum ada | Medium | Perlu animasi guard stance saat block sukses |
 | Tidak ada partial match highlight | Medium | Penting untuk UX, tunjukkan progress mengetik kata |
+| LOMPAT cooldown indicator belum ada di HUD | Medium | Player perlu tahu kapan bisa pakai LOMPAT lagi |
+| PERISAI max charge belum enforce di UI | Low | Visual saja, logic sudah dibatasin |
+
+**Resolved dari prototype:**
+- ✅ WPM grace period → diimplement 5 detik
+- ✅ CPU defense → passive block chance diimplement
+- ✅ Defense balance → TANGKIS buff 2 proyektil, LOMPAT nerf + cooldown
