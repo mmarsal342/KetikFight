@@ -8,10 +8,11 @@ import {
 import {
   ATTACKS,
   DEFENSES,
-  CPU_POOL,
+  DIFFICULTIES,
   MAX_PERISAI_CHARGES,
   getRandomAttack,
 } from "../gameData";
+import type { Difficulty } from "../gameData";
 
 import { sfx, setSoundEnabled, initAudio } from "../sound";
 import HPBar from "./HPBar";
@@ -24,9 +25,6 @@ import LompattCdIndicator from "./LompattCdIndicator";
 import InputField from "./InputField";
 import WordCheatsheet from "./WordCheatsheet";
 import HUDBar from "./HUDBar";
-
-const CPU_MIN_DELAY = 3000;
-const CPU_MAX_DELAY = 5000;
 
 export default function KetikFight() {
   // Refs — source of truth for game logic
@@ -57,11 +55,16 @@ export default function KetikFight() {
   const [cpuGuarding, setCpuGuarding] = useState(false);
   const [toast, setToast] = useState<{ id: number; text: string; type: string } | null>(null);
   const [soundOn, setSoundOn] = useState(true);
+  const [difficulty, setDifficulty] = useState<Difficulty>("normal");
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const diffRef = useRef<Difficulty>("normal");
+  const countdownTimerRef = useRef<number>(0);
 
   const stopAll = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
     clearTimeout(cpuTimerRef.current);
     clearTimeout(msgTimerRef.current);
+    clearTimeout(countdownTimerRef.current);
   }, []);
 
   const showToast = useCallback((text: string, type: string = "info") => {
@@ -102,7 +105,8 @@ export default function KetikFight() {
   // CPU attack scheduler
   const scheduleCpuAttack = useCallback(() => {
     if (phaseRef.current !== "playing") return;
-    const attack = getRandomAttack(CPU_POOL);
+    const diff = DIFFICULTIES[diffRef.current];
+    const attack = getRandomAttack(diff.pool);
     const proj: Projectile = {
       id: ++pidRef.current,
       word: attack.word,
@@ -112,7 +116,7 @@ export default function KetikFight() {
     };
     projsRef.current = [...projsRef.current, proj];
     setProjs([...projsRef.current]);
-    const delay = CPU_MIN_DELAY + Math.random() * (CPU_MAX_DELAY - CPU_MIN_DELAY);
+    const delay = diff.minDelay + Math.random() * (diff.maxDelay - diff.minDelay);
     cpuTimerRef.current = window.setTimeout(scheduleCpuAttack, delay);
   }, []);
 
@@ -266,9 +270,7 @@ export default function KetikFight() {
     [firePlayerAttack, executeDefense, updateWPM],
   );
 
-  const startGame = useCallback(() => {
-    initAudio();
-    stopAll();
+  const beginPlay = useCallback(() => {
     pHPRef.current = MAX_HP;
     cHPRef.current = MAX_HP;
     projsRef.current = [];
@@ -291,7 +293,35 @@ export default function KetikFight() {
 
     cpuTimerRef.current = window.setTimeout(scheduleCpuAttack, 2000);
     sfx.start();
-  }, [stopAll, scheduleCpuAttack]);
+  }, [scheduleCpuAttack]);
+
+  const startGame = useCallback(() => {
+    initAudio();
+    stopAll();
+
+    pHPRef.current = MAX_HP;
+    cHPRef.current = MAX_HP;
+    setPlayerHP(MAX_HP);
+    setCpuHP(MAX_HP);
+    setProjs([]);
+    setPhase("idle");
+    setCountdown(3);
+    sfx.type();
+
+    let n = 3;
+    const tick = () => {
+      n--;
+      if (n > 0) {
+        setCountdown(n);
+        sfx.type();
+        countdownTimerRef.current = window.setTimeout(tick, 700);
+      } else {
+        setCountdown(null);
+        beginPlay();
+      }
+    };
+    countdownTimerRef.current = window.setTimeout(tick, 700);
+  }, [stopAll, beginPlay]);
 
   const toggleSound = useCallback(() => {
     const next = !soundOn;
@@ -389,8 +419,31 @@ export default function KetikFight() {
         </div>
       )}
 
+      {/* Countdown */}
+      {countdown !== null && phase !== "playing" && (
+        <div className="fixed inset-0 flex items-center justify-center z-40 pointer-events-none">
+          <div
+            key={countdown}
+            className="text-9xl font-mono font-bold text-yellow-500 animate-ping"
+            style={{ textShadow: "0 0 30px rgba(253, 224, 71, 0.8)" }}
+          >
+            {countdown}
+          </div>
+        </div>
+      )}
+
       {/* Overlay */}
-      <OverlayPanel phase={phase} wpm={wpm} onStart={startGame} onRestart={startGame} />
+      <OverlayPanel
+        phase={phase}
+        wpm={wpm}
+        difficulty={difficulty}
+        onStart={startGame}
+        onRestart={startGame}
+        onSelectDifficulty={(d) => {
+          setDifficulty(d);
+          diffRef.current = d;
+        }}
+      />
     </div>
   );
 }

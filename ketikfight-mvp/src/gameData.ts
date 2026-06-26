@@ -33,12 +33,59 @@ export const CPU_POOL: AttackWord[] = [
   { word: "HAJAR", dmg: 18, tier: 1 },
   { word: "SIKAT", dmg: 15, tier: 1 },
   { word: "HANTAM", dmg: 22, tier: 2 },
+  { word: "GEBUK", dmg: 20, tier: 1 },
   { word: "TENDANG", dmg: 28, tier: 3 },
   { word: "TERJANG", dmg: 28, tier: 3 },
+  { word: "BANTAI", dmg: 26, tier: 2 },
+  { word: "SERANGAN", dmg: 35, tier: 3 },
 ];
 
-export const MIN_CPU_DELAY = 3000;
-export const MAX_CPU_DELAY = 5000;
+export type Difficulty = "mudah" | "normal" | "keras" | "gila";
+
+export interface DifficultyConfig {
+  label: string;
+  emoji: string;
+  minDelay: number;
+  maxDelay: number;
+  pool: AttackWord[];
+  maxProjs: number;
+}
+
+export const DIFFICULTIES: Record<Difficulty, DifficultyConfig> = {
+  mudah: {
+    label: "MUDAH",
+    emoji: "🟢",
+    minDelay: 5000,
+    maxDelay: 8000,
+    pool: CPU_POOL.filter((a) => a.tier === 1),
+    maxProjs: 1,
+  },
+  normal: {
+    label: "NORMAL",
+    emoji: "🟡",
+    minDelay: 3000,
+    maxDelay: 5000,
+    pool: CPU_POOL.filter((a) => a.tier === 1 || a.tier === 2),
+    maxProjs: 2,
+  },
+  keras: {
+    label: "KERAS",
+    emoji: "🔴",
+    minDelay: 2000,
+    maxDelay: 3500,
+    pool: [...CPU_POOL],
+    maxProjs: 2,
+  },
+  gila: {
+    label: "GILA",
+    emoji: "💀",
+    minDelay: 1500,
+    maxDelay: 2500,
+    pool: [...CPU_POOL],
+    maxProjs: 3,
+  },
+};
+
 export const MAX_PERISAI_CHARGES = 3;
 
 export const CPU_DEFENSE_TIERS = [
