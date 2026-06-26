@@ -173,4 +173,15 @@ export const sfx = {
   select() {
     tone(800, 0.05, "sine", 0.1);
   },
+
+  parry() {
+    tone(1200, 0.06, "square", 0.3);
+    tone(1600, 0.08, "square", 0.2);
+    setTimeout(() => noiseBurst(0.1, 4000, 0.15), 20);
+  },
+
+  parryMiss() {
+    tone(200, 0.1, "sawtooth", 0.15, 80);
+    noiseBurst(0.06, 300, 0.06);
+  },
 };

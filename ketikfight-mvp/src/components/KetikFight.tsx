@@ -27,8 +27,12 @@ import LompattCdIndicator from "./LompattCdIndicator";
 import InputField from "./InputField";
 import HUDBar from "./HUDBar";
 import ComboDisplay from "./ComboDisplay";
+import ParryIndicator from "./ParryIndicator";
 import JurusSlots from "./JurusSlots";
 import CharacterSelect from "./CharacterSelect";
+
+const PARRY_WINDOW = 0.65;
+const PARRY_COOLDOWN = 1000;
 
 export default function KetikFight() {
   // Refs — game logic source of truth
@@ -42,6 +46,7 @@ export default function KetikFight() {
   const shieldRef = useRef<number>(0);
   const phaseRef = useRef<GamePhase>("idle");
   const lompattCdRef = useRef<number>(0);
+  const parryCdRef = useRef<number>(0);
   const pidRef = useRef<number>(0);
   const rafRef = useRef<number>(0);
   const cpuTimerRef = useRef<number>(0);
@@ -80,6 +85,8 @@ export default function KetikFight() {
   const [ultCharge, setUltCharge] = useState(0);
   const [ultReady, setUltReady] = useState(false);
   const [combo, setCombo] = useState(0);
+  const [parryFlash, setParryFlash] = useState<"success" | "miss" | null>(null);
+  const [parryCdEnd, setParryCdEnd] = useState(0);
 
   const character = charRef.current;
 
@@ -401,6 +408,7 @@ export default function KetikFight() {
     projsRef.current = [];
     shieldRef.current = 0;
     lompattCdRef.current = 0;
+    parryCdRef.current = 0;
     phaseRef.current = "playing";
     totalCharsRef.current = 0;
     startTimeRef.current = 0;
@@ -482,6 +490,58 @@ export default function KetikFight() {
     }
   }, [soundOn]);
 
+  // Parry — Spacebar to deflect closest CPU projectile in timing window
+  const tryParry = useCallback(() => {
+    if (phaseRef.current !== "playing") return;
+    const now = Date.now();
+    if (now < parryCdRef.current) return;
+
+    parryCdRef.current = now + PARRY_COOLDOWN;
+
+    let bestProj: Projectile | null = null;
+    let bestProgress = 0;
+
+    for (const p of projsRef.current) {
+      if (p.fromPlayer) continue;
+      const progress = (now - p.t0) / TRAVEL_MS;
+      if (progress >= PARRY_WINDOW && progress < 1) {
+        if (!bestProj || progress > bestProgress) {
+          bestProj = p;
+          bestProgress = progress;
+        }
+      }
+    }
+
+    if (bestProj) {
+      projsRef.current = projsRef.current.filter((p) => p.id !== bestProj!.id);
+      setProjs([...projsRef.current]);
+      showToast("PARRY!", "success");
+      sfx.parry();
+      setParryFlash("success");
+      setTimeout(() => setParryFlash(null), 300);
+    } else {
+      setInput("");
+      showToast("PARRY MISS!", "error");
+      sfx.parryMiss();
+      setParryFlash("miss");
+      setTimeout(() => setParryFlash(null), 300);
+    }
+    setParryCdEnd(parryCdRef.current);
+  }, [showToast]);
+
+  // Spacebar listener
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        tryParry();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [phase, tryParry]);
+
   const partialMatch = (() => {
     if (!input || input.length < 1) return null;
     for (const slot of slotsRef.current) {
@@ -520,6 +580,22 @@ export default function KetikFight() {
       {/* Combo Display */}
       {phase === "playing" && combo >= 3 && (
         <ComboDisplay combo={combo} />
+      )}
+
+      {/* Parry cooldown indicator */}
+      {phase === "playing" && (
+        <div className="absolute top-4 right-24 z-20">
+          <ParryIndicator cdEnd={parryCdEnd} />
+        </div>
+      )}
+
+      {/* Parry flash overlay */}
+      {parryFlash && (
+        <div
+          className={`fixed inset-0 z-40 pointer-events-none transition-opacity duration-300 ${
+            parryFlash === "success" ? "bg-cyan-400/20" : "bg-red-500/20"
+          }`}
+        />
       )}
 
       {/* Arena */}
