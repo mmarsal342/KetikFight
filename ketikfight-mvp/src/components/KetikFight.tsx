@@ -13,7 +13,7 @@ import {
   getRandomAttack,
 } from "../gameData";
 
-import { sfx, setSoundEnabled } from "../sound";
+import { sfx, setSoundEnabled, initAudio } from "../sound";
 import HPBar from "./HPBar";
 import Stickman from "./Stickman";
 import ProjectileEl from "./Projectile";
@@ -267,6 +267,7 @@ export default function KetikFight() {
   );
 
   const startGame = useCallback(() => {
+    initAudio();
     stopAll();
     pHPRef.current = MAX_HP;
     cHPRef.current = MAX_HP;
@@ -296,7 +297,10 @@ export default function KetikFight() {
     const next = !soundOn;
     setSoundOn(next);
     setSoundEnabled(next);
-    if (next) sfx.type();
+    if (next) {
+      initAudio();
+      sfx.start();
+    }
   }, [soundOn]);
 
   // Partial match finder

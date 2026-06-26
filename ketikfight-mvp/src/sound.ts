@@ -2,14 +2,22 @@ let ctx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let enabled = true;
 
-function getCtx(): AudioContext | null {
-  if (!enabled) return null;
+export function initAudio() {
   if (!ctx) {
     ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     masterGain = ctx.createGain();
-    masterGain.gain.value = 0.3;
+    masterGain.gain.value = 0.6;
     masterGain.connect(ctx.destination);
   }
+  if (ctx.state === "suspended") {
+    ctx.resume();
+  }
+  return ctx;
+}
+
+function getCtx(): AudioContext | null {
+  if (!enabled) return null;
+  if (!ctx) return null;
   if (ctx.state === "suspended") ctx.resume();
   return ctx;
 }
