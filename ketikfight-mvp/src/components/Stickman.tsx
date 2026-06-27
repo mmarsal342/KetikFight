@@ -24,7 +24,7 @@ export default function Stickman({ hp, maxHp, isPlayer, isGuarding }: StickmanPr
         transform: `translateX(-50%) ${isGuarding ? "scale(1.1)" : ""}`,
       }}
     >
-      <svg width="48" height="80" viewBox="0 0 60 100" fill="none" stroke="currentColor" strokeWidth="3" className="md:w-[60px] md:h-[100px]">
+      <svg width="36" height="60" viewBox="0 0 60 100" fill="none" stroke="currentColor" strokeWidth="3" className="md:w-[60px] md:h-[100px]">
         <circle cx="30" cy="15" r="10" />
         <line x1="30" y1="25" x2="30" y2="60" />
         <line x1="10" y1="40" x2="50" y2="40" />

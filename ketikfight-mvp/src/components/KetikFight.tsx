@@ -673,7 +673,7 @@ export default function KetikFight() {
             tryParry();
           }}
           onMouseDown={(e) => e.preventDefault()}
-          className="md:hidden absolute bottom-40 right-4 z-30 w-16 h-16 rounded-full bg-cyan-600/80 border-2 border-cyan-400 font-mono font-bold text-white text-xs flex items-center justify-center active:scale-90 transition-transform touch-none"
+          className="md:hidden absolute bottom-36 right-3 z-30 w-14 h-14 rounded-full bg-cyan-600/80 border-2 border-cyan-400 font-mono font-bold text-white text-[10px] flex items-center justify-center active:scale-90 transition-transform touch-none"
           style={{ boxShadow: "0 0 10px rgba(34, 211, 238, 0.4)" }}
         >
           PARRY

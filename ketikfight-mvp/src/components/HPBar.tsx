@@ -13,18 +13,18 @@ export default function HPBar({ hp, maxHp, isPlayer, phase }: HPBarProps) {
 
   return (
     <div className={`
-      absolute top-[58%] md:top-auto md:bottom-4
+      absolute top-[55%] md:top-auto md:bottom-4
       ${isPlayer ? "left-2 md:left-4" : "right-2 md:right-4"}
-      w-28 md:w-48 z-10
+      w-24 md:w-48 z-10
     `}>
       <div className={`
-        flex items-center gap-1 md:gap-2 mb-1 font-mono font-bold text-[10px] md:text-sm
+        flex items-center gap-1 md:gap-2 mb-0.5 md:mb-1 font-mono font-bold text-[8px] md:text-sm
         ${isPlayer ? "justify-start text-yellow" : "justify-end text-red"}
       `}>
         <span>{isPlayer ? "YOU" : "CPU"}</span>
         <span>{hp}/{maxHp}</span>
       </div>
-      <div className="w-full h-2 md:h-3 bg-gray-800 rounded overflow-hidden border border-gray-700">
+      <div className="w-full h-1.5 md:h-3 bg-gray-800 rounded overflow-hidden border border-gray-700">
         <div
           className={`h-full ${barColor} transition-all duration-300 ${phase === "playing" ? "animate-pulse" : ""}`}
           style={{ width: `${Math.max(0, percentage)}%` }}

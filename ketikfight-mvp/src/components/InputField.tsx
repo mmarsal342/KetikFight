@@ -35,7 +35,7 @@ export default function InputField({ value, onChange, disabled, partialMatch }: 
         disabled={disabled}
         onChange={(e) => onChange(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))}
         placeholder={disabled ? "" : "KETIK..."}
-        className="w-full px-3 py-2 md:px-4 md:py-3 bg-gray-900 border-2 border-gray-700 rounded-lg font-mono text-white text-base md:text-xl text-center uppercase tracking-widest focus:outline-none focus:border-yellow-500 transition-colors"
+        className="w-full px-2 py-1.5 md:px-4 md:py-3 bg-gray-900 border-2 border-gray-700 rounded-lg font-mono text-white text-sm md:text-xl text-center uppercase tracking-widest focus:outline-none focus:border-yellow-500 transition-colors"
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="characters"
