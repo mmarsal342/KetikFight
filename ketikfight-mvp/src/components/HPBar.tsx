@@ -13,9 +13,9 @@ export default function HPBar({ hp, maxHp, isPlayer, phase }: HPBarProps) {
 
   return (
     <div className={`
-      absolute top-16 md:top-auto md:bottom-4
+      absolute top-[58%] md:top-auto md:bottom-4
       ${isPlayer ? "left-2 md:left-4" : "right-2 md:right-4"}
-      w-32 md:w-48 z-10
+      w-28 md:w-48 z-10
     `}>
       <div className={`
         flex items-center gap-1 md:gap-2 mb-1 font-mono font-bold text-[10px] md:text-sm
