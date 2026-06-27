@@ -13,7 +13,7 @@ export default function HPBar({ hp, maxHp, isPlayer, phase }: HPBarProps) {
 
   return (
     <div className={`
-      absolute bottom-20 md:bottom-4
+      absolute top-10 md:top-auto md:bottom-4
       ${isPlayer ? "left-2 md:left-4" : "right-2 md:right-4"}
       w-32 md:w-48 z-10
     `}>

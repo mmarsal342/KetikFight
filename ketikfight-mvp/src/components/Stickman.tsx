@@ -15,7 +15,7 @@ export default function Stickman({ hp, maxHp, isPlayer, isGuarding }: StickmanPr
   return (
     <div
       className={`
-        absolute bottom-32 md:bottom-20 transition-all duration-200
+        absolute top-[22%] md:bottom-20 md:top-auto transition-all duration-200
         ${isPlayer ? "left-[15%] md:left-[13%]" : "left-[85%] md:left-[87%]"}
       `}
       style={{
