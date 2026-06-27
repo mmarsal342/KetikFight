@@ -668,8 +668,12 @@ export default function KetikFight() {
       {/* Mobile parry button */}
       {phase === "playing" && (
         <button
-          onClick={tryParry}
-          className="md:hidden absolute bottom-40 right-4 z-30 w-16 h-16 rounded-full bg-cyan-600/80 border-2 border-cyan-400 font-mono font-bold text-white text-xs flex items-center justify-center active:scale-90 transition-transform"
+          onTouchStart={(e) => {
+            e.preventDefault();
+            tryParry();
+          }}
+          onMouseDown={(e) => e.preventDefault()}
+          className="md:hidden absolute bottom-40 right-4 z-30 w-16 h-16 rounded-full bg-cyan-600/80 border-2 border-cyan-400 font-mono font-bold text-white text-xs flex items-center justify-center active:scale-90 transition-transform touch-none"
           style={{ boxShadow: "0 0 10px rgba(34, 211, 238, 0.4)" }}
         >
           PARRY
@@ -745,7 +749,7 @@ export default function KetikFight() {
         <div className="fixed inset-0 flex items-center justify-center z-40 pointer-events-none">
           <div
             key={countdown}
-            className="text-9xl font-mono font-bold text-yellow-500 animate-ping"
+            className="text-6xl md:text-9xl font-mono font-bold text-yellow-500 animate-ping"
             style={{ textShadow: "0 0 30px rgba(253, 224, 71, 0.8)" }}
           >
             {countdown}
