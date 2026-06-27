@@ -19,7 +19,7 @@ export default function Projectile({ p }: ProjectileProps) {
       className="absolute font-mono font-bold text-base md:text-lg pointer-events-none transition-transform whitespace-nowrap z-15"
       style={{
         left: `${x}%`,
-        top: `calc(20% + ${arc}px)`,
+        top: `calc(28% + ${arc}px)`,
         color,
         textShadow: `0 0 10px ${glow}, 0 0 20px ${glow}`,
         transform: "translateX(-50%) translateY(-50%)",
