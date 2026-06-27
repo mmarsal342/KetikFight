@@ -11,15 +11,15 @@ interface JurusSlotsProps {
 }
 
 const tierColors: Record<number, string> = {
-  1: "border-gray-600 text-gray-300",
-  2: "border-blue-500 text-blue-400",
-  3: "border-purple-500 text-purple-400",
+  1: "border-gray-500 text-white",
+  2: "border-blue-400 text-blue-300",
+  3: "border-purple-400 text-purple-300",
 };
 
 const tierBg: Record<number, string> = {
-  1: "bg-gray-800/60",
-  2: "bg-blue-950/40",
-  3: "bg-purple-950/40",
+  1: "bg-gray-900/90",
+  2: "bg-blue-950/80",
+  3: "bg-purple-950/80",
 };
 
 function getResonance(slots: SlotState[], idx: number): number {
@@ -111,7 +111,7 @@ export default function JurusSlots({
 
               <div className="flex items-center gap-1">
                 {matched ? (
-                  <span className="font-mono font-bold text-[10px] md:text-sm tracking-wider">
+                  <span className="font-mono font-bold text-[10px] md:text-sm tracking-wider" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.8)" }}>
                     {j.word.split("").map((ch, ci) => (
                       <span key={ci} className={ci < typedInput.length ? "text-green-400" : "text-gray-600"}>
                         {ch}
@@ -119,12 +119,12 @@ export default function JurusSlots({
                     ))}
                   </span>
                 ) : (
-                  <span className={`font-mono font-bold text-[10px] md:text-sm tracking-wider ${isDefense ? "text-cyan-400" : ""}`}>
+                  <span className={`font-mono font-bold text-[10px] md:text-sm tracking-wider ${isDefense ? "text-cyan-300" : "text-white"}`} style={{ textShadow: "0 1px 2px rgba(0,0,0,0.8)" }}>
                     {j.word}
                   </span>
                 )}
               </div>
-              <span className="text-[10px] text-gray-500">
+              <span className="text-[8px] md:text-[10px] text-gray-400 font-bold">
                 {isDefense
                   ? j.defenseType === "block"
                     ? "BLOCK"
